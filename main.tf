@@ -7,12 +7,14 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "smart-campus-m4-tfstate-uce" # <--- Pon aquí el nombre EXACTO del bucket que creaste en el paso 1
+    bucket         = "smart-campus-m4-tfstate-uce" 
     key            = "estado/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
   }
 }
+
+#
 
 provider "aws" {
   region = var.aws_region
