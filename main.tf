@@ -5,12 +5,20 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+  backend "s3" {
+    bucket         = "smart-campus-m4-tfstate-uce" # <--- Pon aquí el nombre EXACTO del bucket que creaste en el paso 1
+    key            = "estado/terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+  }
 }
 
 provider "aws" {
   region = var.aws_region
 }
 
+# ... (Todo el resto del main.tf hacia abajo se queda exactamente IGUAL a como lo tenías)
 
 resource "aws_vpc" "vpc_modulo4" {
   cidr_block           = "10.0.0.0/16"
