@@ -5,6 +5,15 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+#S3
+
+  backend "s3" {
+  bucket         = "s3-smartcampus-uce-m4-gitops-xa28"
+  key            = "global/s3/terraform.tfstate"
+  region         = "us-east-1"
+  encrypt        = true
+}
 }
 
 provider "aws" {
@@ -72,7 +81,7 @@ resource "aws_route_table_association" "pub_2_assoc" {
 
 
 resource "aws_instance" "bastion_host" {
-  ami           = "ami-0c7217cdde317cfec" # Ubuntu 22.04 LTS
+  ami           = "ami-0c7217cdde317cfec" 
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.public_1.id
   tags          = { Name = "Bastion-Host-UCE-M4-${var.environment}" }
@@ -97,6 +106,7 @@ resource "aws_security_group" "sg_microservicios" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
+
 
 
 resource "aws_db_subnet_group" "rds_subnets" {
@@ -140,6 +150,7 @@ resource "aws_elasticache_cluster" "cache_redis" {
 }
 
 
+
 resource "aws_launch_template" "template_apps" {
   name_prefix   = "template-uce-m4-"
   image_id      = "ami-0c7217cdde317cfec"
@@ -178,6 +189,5 @@ resource "aws_instance" "servidor_qa" {
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-
-  tags = { Name = "Servidor-Unico-QA-M4" }
+  tags                   = { Name = "Servidor-Unico-QA-M4" }
 }
