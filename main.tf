@@ -6,9 +6,11 @@ terraform {
     }
   }
 
+
+
   backend "s3" {
-    bucket         = "smart-campus-m4-tfstate-uce" 
-    key            = "estado/terraform.tfstate"
+    bucket         = "s3-uce-modulo4-tfstate"
+    key            = "global/s3/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
   }
@@ -109,6 +111,7 @@ resource "aws_security_group" "sg_microservicios" {
 }
 
 
+
 resource "aws_db_subnet_group" "rds_subnets" {
   name       = "rds-subnets-uce-m4-${var.environment}"
   subnet_ids = [aws_subnet.private_1.id, aws_subnet.private_2.id]
@@ -148,6 +151,7 @@ resource "aws_elasticache_cluster" "cache_redis" {
   subnet_group_name    = aws_elasticache_subnet_group.redis_subnets.name
   port                 = 6379
 }
+
 
 
 resource "aws_launch_template" "template_apps" {

@@ -18,24 +18,24 @@ jobs:
     - name: Configurar Terraform
       uses: hashicorp/setup-terraform@v2
 
-    - name: Inyectar Credenciales AWS de Variables de Entorno Seguras
+    - name: Inyectar Credenciales AWS de AWS Academy
       uses: aws-actions/configure-aws-credentials@v2
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }} 
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
         aws-region: us-east-1
 
-    - name: Inicializar
+    - name: Inicializar Terraform
       run: terraform init
 
-    - name: Ejecutar en QA
+    - name: Desplegar en QA
       if: github.ref == 'refs/heads/qa'
       run: |
         terraform workspace select qa || terraform workspace new qa
         terraform apply -auto-approve -var="environment=qa"
 
-    - name: Ejecutar en PROD
+    - name: Desplegar en PROD
       if: github.ref == 'refs/heads/main'
       run: |
         terraform workspace select prod || terraform workspace new prod
