@@ -9,11 +9,11 @@ terraform {
 #S3
 
   backend "s3" {
-    bucket         = "s3-smartcampus-uce-m4-gitops" # <--- El bucket con acceso liberado que acabas de crear
-    key            = "global/s3/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-  }
+  bucket         = "s3-smartcampus-uce-m4-gitops-xa28"
+  key            = "global/s3/terraform.tfstate"
+  region         = "us-east-1"
+  encrypt        = true
+}
 }
 
 provider "aws" {
