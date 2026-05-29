@@ -5,11 +5,21 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+  backend "s3" {
+    bucket         = "smart-campus-m4-tfstate-uce" 
+    key            = "estado/terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+  }
 }
+
+
 
 provider "aws" {
   region = var.aws_region
 }
+
 
 
 resource "aws_vpc" "vpc_modulo4" {
