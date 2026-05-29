@@ -15,47 +15,72 @@ provider "aws" {
 resource "aws_vpc" "vpc_modulo4" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
-  tags = { Name = "vpc-smartcampus-${var.environment}" }
+  tags = { Name = "vpc-smartcampus-m4-${var.environment}" }
 }
 
 resource "aws_subnet" "public_1" {
   vpc_id            = aws_vpc.vpc_modulo4.id
   cidr_block        = "10.0.1.0/24"
   availability_zone = "us-east-1a"
+  tags              = { Name = "subnet-public-1-m4" }
 }
 
 resource "aws_subnet" "public_2" {
   vpc_id            = aws_vpc.vpc_modulo4.id
   cidr_block        = "10.0.2.0/24"
   availability_zone = "us-east-1b"
+  tags              = { Name = "subnet-public-2-m4" }
 }
 
 resource "aws_subnet" "private_1" {
   vpc_id            = aws_vpc.vpc_modulo4.id
   cidr_block        = "10.0.3.0/24"
   availability_zone = "us-east-1a"
+  tags              = { Name = "subnet-private-1-m4" }
 }
 
 resource "aws_subnet" "private_2" {
   vpc_id            = aws_vpc.vpc_modulo4.id
   cidr_block        = "10.0.4.0/24"
   availability_zone = "us-east-1b"
+  tags              = { Name = "subnet-private-2-m4" }
 }
 
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.vpc_modulo4.id
+  tags   = { Name = "igw-modulo4" }
 }
+
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.vpc_modulo4.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+}
+
+resource "aws_route_table_association" "pub_1_assoc" {
+  subnet_id      = aws_subnet.public_1.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+resource "aws_route_table_association" "pub_2_assoc" {
+  subnet_id      = aws_subnet.public_2.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
 
 
 resource "aws_instance" "bastion_host" {
   ami           = "ami-0c7217cdde317cfec" # Ubuntu 22.04 LTS
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.public_1.id
-  tags          = { Name = "Bastion-Host-${var.environment}" }
+  tags          = { Name = "Bastion-Host-UCE-M4-${var.environment}" }
 }
 
 resource "aws_security_group" "sg_microservicios" {
-  name        = "sg_apps_${var.environment}"
+  name        = "sg_apps_uce_m4_${var.environment}"
+  description = "Control de acceso para el modulo 4"
   vpc_id      = aws_vpc.vpc_modulo4.id
 
   ingress {
@@ -75,7 +100,7 @@ resource "aws_security_group" "sg_microservicios" {
 
 
 resource "aws_db_subnet_group" "rds_subnets" {
-  name       = "rds-subnets-${var.environment}"
+  name       = "rds-subnets-uce-m4-${var.environment}"
   subnet_ids = [aws_subnet.private_1.id, aws_subnet.private_2.id]
 }
 
@@ -84,28 +109,28 @@ resource "aws_db_instance" "relational_db" {
   engine               = "postgres"
   engine_version       = "15"
   instance_class       = "db.t3.micro"
-  db_name              = "academic_reports"
+  db_name              = "academic_reports_m4"
   username             = "admin_uce"
   password             = "PasswordSeguro123"
   db_subnet_group_name = aws_db_subnet_group.rds_subnets.name
   skip_final_snapshot  = true
-  tags                 = { Name = "Postgres-DB-${var.environment}" }
+  tags                 = { Name = "Postgres-DB-UCE-M4-${var.environment}" }
 }
 
 resource "aws_instance" "mongodb_server" {
   ami           = "ami-0c7217cdde317cfec"
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.private_1.id
-  tags          = { Name = "MongoDB-Server-${var.environment}" }
+  tags          = { Name = "MongoDB-Server-UCE-M4-${var.environment}" }
 }
 
 resource "aws_elasticache_subnet_group" "redis_subnets" {
-  name       = "redis-subnets-${var.environment}"
+  name       = "redis-subnets-uce-m4-${var.environment}"
   subnet_ids = [aws_subnet.private_1.id, aws_subnet.private_2.id]
 }
 
 resource "aws_elasticache_cluster" "cache_redis" {
-  cluster_id           = "redis-${var.environment}"
+  cluster_id           = "redis-uce-m4-${var.environment}"
   engine               = "redis"
   node_type            = "cache.t3.micro"
   num_cache_nodes      = 1
@@ -116,7 +141,7 @@ resource "aws_elasticache_cluster" "cache_redis" {
 
 
 resource "aws_launch_template" "template_apps" {
-  name_prefix   = "template-modulo4-"
+  name_prefix   = "template-uce-m4-"
   image_id      = "ami-0c7217cdde317cfec"
   instance_type = var.environment == "prod" ? "t3.medium" : "t2.micro"
 
@@ -127,7 +152,7 @@ resource "aws_launch_template" "template_apps" {
 }
 
 resource "aws_lb" "load_balancer" {
-  name               = "elb-modulo4-${var.environment}"
+  name               = "elb-uce-m4-${var.environment}"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.sg_microservicios.id]
@@ -153,5 +178,6 @@ resource "aws_instance" "servidor_qa" {
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  tags                   = { Name = "Servidor-QA" }
+
+  tags = { Name = "Servidor-Unico-QA-M4" }
 }
