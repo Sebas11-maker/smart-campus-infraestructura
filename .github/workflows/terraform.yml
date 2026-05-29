@@ -1,0 +1,42 @@
+name: 'Terraform CD'
+
+on:
+  push:
+    branches:
+      - qa
+      - main
+
+jobs:
+  terraform:
+    name: 'Despliegue AWS'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Copiar Codigo
+      uses: actions/checkout@v3
+
+    - name: Configurar Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    - name: Inyectar Credenciales AWS de Variables de Entorno Seguras
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }} 
+        aws-region: us-east-1
+
+    - name: Inicializar
+      run: terraform init
+
+    - name: Ejecutar en QA
+      if: github.ref == 'refs/heads/qa'
+      run: |
+        terraform workspace select qa || terraform workspace new qa
+        terraform apply -auto-approve -var="environment=qa"
+
+    - name: Ejecutar en PROD
+      if: github.ref == 'refs/heads/main'
+      run: |
+        terraform workspace select prod || terraform workspace new prod
+        terraform apply -auto-approve -var="environment=prod"
