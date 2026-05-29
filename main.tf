@@ -14,13 +14,13 @@ terraform {
   }
 }
 
-#
+
 
 provider "aws" {
   region = var.aws_region
 }
 
-# ... (Todo el resto del main.tf hacia abajo se queda exactamente IGUAL a como lo tenías)
+
 
 resource "aws_vpc" "vpc_modulo4" {
   cidr_block           = "10.0.0.0/16"
