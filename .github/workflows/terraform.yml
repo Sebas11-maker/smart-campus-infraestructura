@@ -18,16 +18,33 @@ jobs:
     - name: Configurar Terraform
       uses: hashicorp/setup-terraform@v2
 
-    - name: Inyectar Credenciales AWS de AWS Academy
+    - name: Credenciales AWS - Entorno QA
+      if: github.ref == 'refs/heads/qa'
       uses: aws-actions/configure-aws-credentials@v2
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_QA }}
         aws-region: us-east-1
 
-    - name: Inicializar Terraform
-      run: terraform init
+    - name: Credenciales AWS - Entorno PROD
+      if: github.ref == 'refs/heads/main'
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_PROD }}
+        aws-region: us-east-1
+
+    - name: Inicializar Terraform en QA
+      if: github.ref == 'refs/heads/qa'
+      run: |
+        terraform init -backend-config="bucket=${{ secrets.S3_BUCKET_QA }}" -backend-config="key=global/s3/terraform.tfstate" -backend-config="region=us-east-1"
+
+    - name: Inicializar Terraform en PROD
+      if: github.ref == 'refs/heads/main'
+      run: |
+        terraform init -backend-config="bucket=${{ secrets.S3_BUCKET_PROD }}" -backend-config="key=global/s3/terraform.tfstate" -backend-config="region=us-east-1"
 
     - name: Desplegar en QA
       if: github.ref == 'refs/heads/qa'
