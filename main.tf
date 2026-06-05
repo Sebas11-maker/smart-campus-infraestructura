@@ -14,19 +14,6 @@ provider "aws" {
 }
 
 # ==============================================================================
-# VARIABLES REQUERIDAS (Asegurar que existan en su variables.tf)
-# ==============================================================================
-variable "aws_region" {
-  type    = string
-  default = "us-east-1"
-}
-
-variable "environment" {
-  type        = string
-  description = "Entorno de despliegue (qa o prod)"
-}
-
-# ==============================================================================
 # RED (VPC, SUBNETS, IGW, ROUTING)
 # ==============================================================================
 resource "aws_vpc" "vpc_modulo4" {
@@ -217,7 +204,7 @@ resource "aws_instance" "sec_service_qa" {
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
   key_name               = "vockey" 
-  tags                   = { Name = "Academic-Risk-Service-QA-M4" } # Nombre corregido y ordenado
+  tags                   = { Name = "Academic-Risk-Service-QA-M4" }
 }
 
 resource "aws_instance" "notify_service_qa" {
@@ -244,7 +231,7 @@ resource "aws_launch_template" "template_apps" {
     security_groups             = [aws_security_group.sg_microservicios.id]
   }
 
-  # PROVISIÓN AUTOMÁTICA EN PRODUCCIÓN AL NACER LA INSTANCIA (100% Manos libres)
+  # PROVISIÓN AUTOMÁTICA EN PRODUCCIÓN CON TU USUARIO DOCKER REAL
   user_data = var.environment == "prod" ? base64encode(<<-EOF
               #!/bin/bash
               sudo apt-get update -y
@@ -252,9 +239,9 @@ resource "aws_launch_template" "template_apps" {
               sudo systemctl start docker
               sudo systemctl enable docker
               
-              # Levantar automáticamente los contenedores configurados estables para producción
-              sudo docker run -d -p 8001:8000 --name risk-service --restart unless-stopped ${{ secrets.DOCKERHUB_USERNAME }}/academic-risk-service:prod-latest
-              sudo docker run -d -p 8002:8000 --name notify-service --restart unless-stopped ${{ secrets.DOCKERHUB_USERNAME }}/notification-service:prod-latest
+              # Lanzamiento directo desde el DockerHub de xaandrade
+              sudo docker run -d -p 8001:8000 --name risk-service --restart unless-stopped xaandrade/academic-risk-service:prod-latest
+              sudo docker run -d -p 8002:8000 --name notify-service --restart unless-stopped xaandrade/notification-service:prod-latest
               EOF
   ) : null
 }
