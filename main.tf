@@ -13,7 +13,9 @@ provider "aws" {
   region = var.aws_region
 }
 
-
+# ==============================================================================
+# RED (VPC, SUBNETS, IGW, ROUTING)
+# ==============================================================================
 resource "aws_vpc" "vpc_modulo4" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
@@ -71,15 +73,16 @@ resource "aws_route_table_association" "pub_2_assoc" {
   route_table_id = aws_route_table.public_rt.id
 }
 
-
-
+# ==============================================================================
+# BASTION HOST & SECURITY GROUPS
+# ==============================================================================
 resource "aws_instance" "bastion_host" {
   ami                         = "ami-0c7217cdde317cfec" 
   instance_type               = "t2.micro"
   subnet_id                   = aws_subnet.public_1.id
   associate_public_ip_address = true 
   vpc_security_group_ids      = [aws_security_group.sg_bastion.id]
-  key_name                    = "vockey" # CORRECCIÓN: Inyectar llave del laboratorio
+  key_name                    = "vockey" 
   tags                        = { Name = "Bastion-Host-UCE-M4-${var.environment}" }
 }
 
@@ -107,11 +110,12 @@ resource "aws_security_group" "sg_microservicios" {
   description = "Control de acceso para el modulo 4"
   vpc_id      = aws_vpc.vpc_modulo4.id
 
+  # SOLUCIÓN DEL TIMEOUT: Permitir tráfico SSH (22) desde cualquier IP interna de la VPC
   ingress {
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
-    security_groups = [aws_security_group.sg_bastion.id] 
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"] 
   }
 
   ingress {
@@ -129,8 +133,9 @@ resource "aws_security_group" "sg_microservicios" {
   }
 }
 
-
-
+# ==============================================================================
+# PERSISTENCIA (DATABASES & CACHE)
+# ==============================================================================
 resource "aws_db_subnet_group" "rds_subnets" {
   name       = "rds-subnets-uce-m4-${var.environment}"
   subnet_ids = [aws_subnet.private_1.id, aws_subnet.private_2.id]
@@ -154,7 +159,7 @@ resource "aws_instance" "mongodb_server" {
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name               = "vockey" # CORRECCIÓN: Inyectar llave del laboratorio
+  key_name               = "vockey" 
   tags                   = { Name = "MongoDB-Server-UCE-M4-${var.environment}" }
 }
 
@@ -173,14 +178,16 @@ resource "aws_elasticache_cluster" "cache_redis" {
   port                 = 6379
 }
 
-
+# ==============================================================================
+# INSTANCIAS DE MICROSERVICIOS (ENTORNO QA)
+# ==============================================================================
 resource "aws_instance" "sec_service_qa" {
   count                  = var.environment == "qa" ? 1 : 0
   ami                    = "ami-0c7217cdde317cfec"
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name               = "vockey" # CORRECCIÓN: Inyectar llave del laboratorio
+  key_name               = "vockey" 
   tags                   = { Name = "Security-Service-QA-M4" }
 }
 
@@ -190,16 +197,18 @@ resource "aws_instance" "notify_service_qa" {
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name               = "vockey" # CORRECCIÓN: Inyectar llave del laboratorio
+  key_name               = "vockey" 
   tags                   = { Name = "Notification-Service-QA-M4" }
 }
 
-
+# ==============================================================================
+# ALTA DISPONIBILIDAD Y BALANCEO (ENTORNO PROD)
+# ==============================================================================
 resource "aws_launch_template" "template_apps" {
   name_prefix   = "template-uce-m4-"
   image_id      = "ami-0c7217cdde317cfec"
   instance_type = var.environment == "prod" ? "t3.medium" : "t2.micro"
-  key_name      = "vockey" # CORRECCIÓN: Asegurar llaves para Auto Scaling en Prod
+  key_name      = "vockey" 
 
   network_interfaces {
     associate_public_ip_address = false
@@ -228,7 +237,9 @@ resource "aws_autoscaling_group" "asg_produccion" {
   }
 }
 
-
+# ==============================================================================
+# OUTPUTS
+# ==============================================================================
 output "bastion_public_ip" {
   value       = aws_instance.bastion_host.public_ip
   description = "Registrar este valor en el secreto correspondiente de GitHub"
