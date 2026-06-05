@@ -55,6 +55,7 @@ resource "aws_internet_gateway" "igw" {
   tags   = { Name = "igw-modulo4-${var.environment}" }
 }
 
+# --- ENRUTAMIENTO PÚBLICO ---
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.vpc_modulo4.id
   route {
@@ -71,6 +72,22 @@ resource "aws_route_table_association" "pub_1_assoc" {
 resource "aws_route_table_association" "pub_2_assoc" {
   subnet_id      = aws_subnet.public_2.id
   route_table_id = aws_route_table.public_rt.id
+}
+
+# --- SOLUCIÓN AL TIMEOUT: ENRUTAMIENTO PRIVADO INTERNO ---
+resource "aws_route_table" "private_rt" {
+  vpc_id = aws_vpc.vpc_modulo4.id
+  tags   = { Name = "private-rt-m4-${var.environment}" }
+}
+
+resource "aws_route_table_association" "priv_1_assoc" {
+  subnet_id      = aws_subnet.private_1.id
+  route_table_id = aws_route_table.private_rt.id
+}
+
+resource "aws_route_table_association" "priv_2_assoc" {
+  subnet_id      = aws_subnet.private_2.id
+  route_table_id = aws_route_table.private_rt.id
 }
 
 # ==============================================================================
@@ -110,7 +127,7 @@ resource "aws_security_group" "sg_microservicios" {
   description = "Control de acceso para el modulo 4"
   vpc_id      = aws_vpc.vpc_modulo4.id
 
-  # SOLUCIÓN DEL TIMEOUT: Permitir tráfico SSH (22) desde cualquier IP interna de la VPC
+  # Permitir tráfico SSH (22) desde el rango completo de la VPC local
   ingress {
     from_port   = 22
     to_port     = 22
