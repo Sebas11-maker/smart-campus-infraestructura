@@ -77,8 +77,9 @@ resource "aws_instance" "bastion_host" {
   ami                         = "ami-0c7217cdde317cfec" 
   instance_type               = "t2.micro"
   subnet_id                   = aws_subnet.public_1.id
-  associate_public_ip_address = true # REQUERIDO OBLIGATORIAMENTE PARA GITHUB ACTIONS
+  associate_public_ip_address = true 
   vpc_security_group_ids      = [aws_security_group.sg_bastion.id]
+  key_name                    = "vockey" # CORRECCIÓN: Inyectar llave del laboratorio
   tags                        = { Name = "Bastion-Host-UCE-M4-${var.environment}" }
 }
 
@@ -90,7 +91,7 @@ resource "aws_security_group" "sg_bastion" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 
   egress {
@@ -107,9 +108,9 @@ resource "aws_security_group" "sg_microservicios" {
   vpc_id      = aws_vpc.vpc_modulo4.id
 
   ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
     security_groups = [aws_security_group.sg_bastion.id] 
   }
 
@@ -117,7 +118,7 @@ resource "aws_security_group" "sg_microservicios" {
     from_port   = 8000
     to_port     = 8010
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 
   egress {
@@ -153,6 +154,7 @@ resource "aws_instance" "mongodb_server" {
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name               = "vockey" # CORRECCIÓN: Inyectar llave del laboratorio
   tags                   = { Name = "MongoDB-Server-UCE-M4-${var.environment}" }
 }
 
@@ -178,6 +180,7 @@ resource "aws_instance" "sec_service_qa" {
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name               = "vockey" # CORRECCIÓN: Inyectar llave del laboratorio
   tags                   = { Name = "Security-Service-QA-M4" }
 }
 
@@ -187,6 +190,7 @@ resource "aws_instance" "notify_service_qa" {
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name               = "vockey" # CORRECCIÓN: Inyectar llave del laboratorio
   tags                   = { Name = "Notification-Service-QA-M4" }
 }
 
@@ -195,6 +199,7 @@ resource "aws_launch_template" "template_apps" {
   name_prefix   = "template-uce-m4-"
   image_id      = "ami-0c7217cdde317cfec"
   instance_type = var.environment == "prod" ? "t3.medium" : "t2.micro"
+  key_name      = "vockey" # CORRECCIÓN: Asegurar llaves para Auto Scaling en Prod
 
   network_interfaces {
     associate_public_ip_address = false
