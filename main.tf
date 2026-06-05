@@ -6,14 +6,7 @@ terraform {
     }
   }
 
-#S3
-
-  backend "s3" {
-  bucket         = "s3-smartcampus-uce-m4-gitops-xa28"
-  key            = "global/s3/terraform.tfstate"
-  region         = "us-east-1"
-  encrypt        = true
-}
+  backend "s3" {}
 }
 
 provider "aws" {
@@ -24,42 +17,43 @@ provider "aws" {
 resource "aws_vpc" "vpc_modulo4" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
-  tags = { Name = "vpc-smartcampus-m4-${var.environment}" }
+  tags                 = { Name = "vpc-smartcampus-m4-${var.environment}" }
 }
 
 resource "aws_subnet" "public_1" {
   vpc_id            = aws_vpc.vpc_modulo4.id
   cidr_block        = "10.0.1.0/24"
   availability_zone = "us-east-1a"
-  tags              = { Name = "subnet-public-1-m4" }
+  tags              = { Name = "subnet-public-1-m4-${var.environment}" }
 }
 
 resource "aws_subnet" "public_2" {
   vpc_id            = aws_vpc.vpc_modulo4.id
   cidr_block        = "10.0.2.0/24"
   availability_zone = "us-east-1b"
-  tags              = { Name = "subnet-public-2-m4" }
+  tags              = { Name = "subnet-public-2-m4-${var.environment}" }
 }
 
 resource "aws_subnet" "private_1" {
   vpc_id            = aws_vpc.vpc_modulo4.id
   cidr_block        = "10.0.3.0/24"
   availability_zone = "us-east-1a"
-  tags              = { Name = "subnet-private-1-m4" }
+  tags              = { Name = "subnet-private-1-m4-${var.environment}" }
 }
 
 resource "aws_subnet" "private_2" {
   vpc_id            = aws_vpc.vpc_modulo4.id
   cidr_block        = "10.0.4.0/24"
   availability_zone = "us-east-1b"
-  tags              = { Name = "subnet-private-2-m4" }
+  tags              = { Name = "subnet-private-2-m4-${var.environment}" }
 }
 
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.vpc_modulo4.id
-  tags   = { Name = "igw-modulo4" }
+  tags   = { Name = "igw-modulo4-${var.environment}" }
 }
 
+# --- ENRUTAMIENTO PÚBLICO ---
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.vpc_modulo4.id
   route {
@@ -78,25 +72,42 @@ resource "aws_route_table_association" "pub_2_assoc" {
   route_table_id = aws_route_table.public_rt.id
 }
 
+# --- ENRUTAMIENTO PRIVADO INTERNO ---
+resource "aws_route_table" "private_rt" {
+  vpc_id = aws_vpc.vpc_modulo4.id
+  tags   = { Name = "private-rt-m4-${var.environment}" }
+}
+
+resource "aws_route_table_association" "priv_1_assoc" {
+  subnet_id      = aws_subnet.private_1.id
+  route_table_id = aws_route_table.private_rt.id
+}
+
+resource "aws_route_table_association" "priv_2_assoc" {
+  subnet_id      = aws_subnet.private_2.id
+  route_table_id = aws_route_table.private_rt.id
+}
 
 
 resource "aws_instance" "bastion_host" {
-  ami           = "ami-0c7217cdde317cfec" 
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.public_1.id
-  tags          = { Name = "Bastion-Host-UCE-M4-${var.environment}" }
+  ami                         = "ami-0c7217cdde317cfec" 
+  instance_type               = "t2.micro"
+  subnet_id                   = aws_subnet.public_1.id
+  associate_public_ip_address = true 
+  vpc_security_group_ids      = [aws_security_group.sg_bastion.id]
+  key_name                    = "vockey" 
+  tags                        = { Name = "Bastion-Host-UCE-M4-${var.environment}" }
 }
 
-resource "aws_security_group" "sg_microservicios" {
-  name        = "sg_apps_uce_m4_${var.environment}"
-  description = "Control de acceso para el modulo 4"
+resource "aws_security_group" "sg_bastion" {
+  name        = "sg_bastion_m4_${var.environment}"
   vpc_id      = aws_vpc.vpc_modulo4.id
 
   ingress {
-    from_port   = 80
-    to_port     = 80
+    from_port   = 22
+    to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 
   egress {
@@ -107,6 +118,32 @@ resource "aws_security_group" "sg_microservicios" {
   }
 }
 
+resource "aws_security_group" "sg_microservicios" {
+  name        = "sg_apps_uce_m4_${var.environment}"
+  description = "Control de acceso para el modulo 4"
+  vpc_id      = aws_vpc.vpc_modulo4.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"] 
+  }
+
+  ingress {
+    from_port   = 8000
+    to_port     = 8010
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] 
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
 
 
 resource "aws_db_subnet_group" "rds_subnets" {
@@ -128,10 +165,12 @@ resource "aws_db_instance" "relational_db" {
 }
 
 resource "aws_instance" "mongodb_server" {
-  ami           = "ami-0c7217cdde317cfec"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private_1.id
-  tags          = { Name = "MongoDB-Server-UCE-M4-${var.environment}" }
+  ami                    = "ami-0c7217cdde317cfec"
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.private_1.id
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name               = "vockey" 
+  tags                   = { Name = "MongoDB-Server-UCE-M4-${var.environment}" }
 }
 
 resource "aws_elasticache_subnet_group" "redis_subnets" {
@@ -150,16 +189,52 @@ resource "aws_elasticache_cluster" "cache_redis" {
 }
 
 
+resource "aws_instance" "sec_service_qa" {
+  count                  = var.environment == "qa" ? 1 : 0
+  ami                    = "ami-0c7217cdde317cfec"
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.private_1.id
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name               = "vockey" 
+  tags                   = { Name = "Academic-Risk-Service-QA-M4" }
+}
+
+resource "aws_instance" "notify_service_qa" {
+  count                  = var.environment == "qa" ? 1 : 0
+  ami                    = "ami-0c7217cdde317cfec"
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.private_1.id
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name               = "vockey" 
+  tags                   = { Name = "Notification-Service-QA-M4" }
+}
+
+
 
 resource "aws_launch_template" "template_apps" {
   name_prefix   = "template-uce-m4-"
   image_id      = "ami-0c7217cdde317cfec"
   instance_type = var.environment == "prod" ? "t3.medium" : "t2.micro"
+  key_name      = "vockey" 
 
   network_interfaces {
     associate_public_ip_address = false
     security_groups             = [aws_security_group.sg_microservicios.id]
   }
+
+  
+  user_data = var.environment == "prod" ? base64encode(<<-EOF
+              #!/bin/bash
+              sudo apt-get update -y
+              sudo apt-get install -y docker.io
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              
+              # Lanzamiento directo desde el DockerHub de xaandrade
+              sudo docker run -d -p 8001:8000 --name risk-service --restart unless-stopped xaandrade/academic-risk-service:prod-latest
+              sudo docker run -d -p 8002:8000 --name notify-service --restart unless-stopped xaandrade/notification-service:prod-latest
+              EOF
+  ) : null
 }
 
 resource "aws_lb" "load_balancer" {
@@ -181,13 +256,16 @@ resource "aws_autoscaling_group" "asg_produccion" {
     id      = aws_launch_template.template_apps.id
     version = "$Latest"
   }
+
+  tag {
+    key                 = "Name"
+    value               = "Microservice-Prod-Instance"
+    propagate_at_launch = true
+  }
 }
 
-resource "aws_instance" "servidor_qa" {
-  count                  = var.environment == "qa" ? 1 : 0
-  ami                    = "ami-0c7217cdde317cfec"
-  instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.private_1.id
-  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  tags                   = { Name = "Servidor-Unico-QA-M4" }
+
+output "bastion_public_ip" {
+  value       = aws_instance.bastion_host.public_ip
+  description = "Registrar este valor en el secreto correspondiente de GitHub"
 }
