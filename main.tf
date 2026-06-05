@@ -14,6 +14,19 @@ provider "aws" {
 }
 
 # ==============================================================================
+# VARIABLES REQUERIDAS (Asegurar que existan en su variables.tf)
+# ==============================================================================
+variable "aws_region" {
+  type    = string
+  default = "us-east-1"
+}
+
+variable "environment" {
+  type        = string
+  description = "Entorno de despliegue (qa o prod)"
+}
+
+# ==============================================================================
 # RED (VPC, SUBNETS, IGW, ROUTING)
 # ==============================================================================
 resource "aws_vpc" "vpc_modulo4" {
@@ -74,7 +87,7 @@ resource "aws_route_table_association" "pub_2_assoc" {
   route_table_id = aws_route_table.public_rt.id
 }
 
-# --- SOLUCIÓN AL TIMEOUT: ENRUTAMIENTO PRIVADO INTERNO ---
+# --- ENRUTAMIENTO PRIVADO INTERNO ---
 resource "aws_route_table" "private_rt" {
   vpc_id = aws_vpc.vpc_modulo4.id
   tags   = { Name = "private-rt-m4-${var.environment}" }
@@ -127,7 +140,6 @@ resource "aws_security_group" "sg_microservicios" {
   description = "Control de acceso para el modulo 4"
   vpc_id      = aws_vpc.vpc_modulo4.id
 
-  # Permitir tráfico SSH (22) desde el rango completo de la VPC local
   ingress {
     from_port   = 22
     to_port     = 22
@@ -205,7 +217,7 @@ resource "aws_instance" "sec_service_qa" {
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
   key_name               = "vockey" 
-  tags                   = { Name = "Security-Service-QA-M4" }
+  tags                   = { Name = "Academic-Risk-Service-QA-M4" } # Nombre corregido y ordenado
 }
 
 resource "aws_instance" "notify_service_qa" {
@@ -231,6 +243,20 @@ resource "aws_launch_template" "template_apps" {
     associate_public_ip_address = false
     security_groups             = [aws_security_group.sg_microservicios.id]
   }
+
+  # PROVISIÓN AUTOMÁTICA EN PRODUCCIÓN AL NACER LA INSTANCIA (100% Manos libres)
+  user_data = var.environment == "prod" ? base64encode(<<-EOF
+              #!/bin/bash
+              sudo apt-get update -y
+              sudo apt-get install -y docker.io
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              
+              # Levantar automáticamente los contenedores configurados estables para producción
+              sudo docker run -d -p 8001:8000 --name risk-service --restart unless-stopped ${{ secrets.DOCKERHUB_USERNAME }}/academic-risk-service:prod-latest
+              sudo docker run -d -p 8002:8000 --name notify-service --restart unless-stopped ${{ secrets.DOCKERHUB_USERNAME }}/notification-service:prod-latest
+              EOF
+  ) : null
 }
 
 resource "aws_lb" "load_balancer" {
@@ -251,6 +277,12 @@ resource "aws_autoscaling_group" "asg_produccion" {
   launch_template {
     id      = aws_launch_template.template_apps.id
     version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "Microservice-Prod-Instance"
+    propagate_at_launch = true
   }
 }
 
