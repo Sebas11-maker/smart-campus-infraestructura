@@ -36,6 +36,11 @@ jobs:
         aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_PROD }}
         aws-region: us-east-1
 
+    - name: Verificar identidad AWS
+      if: github.ref == 'refs/heads/main'
+      run: |
+        aws sts get-caller-identity
+
     - name: Inicializar Terraform en QA
       if: github.ref == 'refs/heads/qa'
       run: |
