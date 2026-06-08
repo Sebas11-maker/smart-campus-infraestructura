@@ -30,7 +30,7 @@ jobs:
 
     - name: Inicializar Terraform en QA
       run: |
-        terraform init -backend-config="bucket=${{ secrets.S3_BUCKET_QA }}" -backend-config="key=global/s3/terraform.tfstate" -backend-config="region=us-east-1"
+        terraform init -backend-config="bucket=s3-smartcampus-uce-m4-qa" -backend-config="key=global/s3/terraform.tfstate" -backend-config="region=us-east-1"
 
     - name: Desplegar en QA
       run: |
@@ -38,7 +38,7 @@ jobs:
         terraform apply -auto-approve -var="environment=qa"
 
     # ==========================================================================
-    # FRENTE 2: DESPLIEGUE EN LA CUENTA DE PRODUCCIÓN (¡Sín esperar PR!)
+    # FRENTE 2: DESPLIEGUE EN LA CUENTA DE PRODUCCIÓN (¡Sin esperar PR!)
     # ==========================================================================
     - name: Credenciales AWS - Entorno PROD
       uses: aws-actions/configure-aws-credentials@v2
@@ -50,8 +50,8 @@ jobs:
 
     - name: Inicializar Terraform en PROD
       run: |
-        # Forzamos re-inicialización para limpiar los metadatos del S3 de QA anteriores
-        terraform init -reconfigure -backend-config="bucket=${{ secrets.S3_BUCKET_PROD }}" -backend-config="key=global/s3/terraform.tfstate" -backend-config="region=us-east-1"
+        # Usamos -reconfigure para limpiar los metadatos y conectarnos limpiamente al S3 de Producción
+        terraform init -reconfigure -backend-config="bucket=s3-smartcampus-uce-m4-prod" -backend-config="key=global/s3/terraform.tfstate" -backend-config="region=us-east-1"
 
     - name: Desplegar en PROD
       run: |
