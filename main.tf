@@ -6,7 +6,7 @@ terraform {
     }
   }
 
-  # BACKEND REMOTO ACTIVO - Sincronizado para persistencia multi-entorno
+
   backend "s3" {}
 }
 
@@ -14,9 +14,7 @@ provider "aws" {
   region = var.aws_region
 }
 
-# ==============================================================================
-# RED (VPC, SUBNETS, IGW, ROUTING)
-# ==============================================================================
+
 resource "aws_vpc" "vpc_modulo4" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
@@ -56,7 +54,7 @@ resource "aws_internet_gateway" "igw" {
   tags   = { Name = "igw-modulo4-${var.environment}" }
 }
 
-# --- ENRUTAMIENTO PÚBLICO ---
+
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.vpc_modulo4.id
   route {
@@ -91,9 +89,7 @@ resource "aws_route_table_association" "priv_2_assoc" {
   route_table_id = aws_route_table.private_rt.id
 }
 
-# ==============================================================================
-# BASTION HOST & SECURITY GROUPS
-# ==============================================================================
+
 resource "aws_instance" "bastion_host" {
   ami                         = "ami-0c7217cdde317cfec" 
   instance_type               = "t2.micro"
@@ -150,9 +146,7 @@ resource "aws_security_group" "sg_microservicios" {
   }
 }
 
-# ==============================================================================
-# PERSISTENCIA (DATABASES & CACHE)
-# ==============================================================================
+
 resource "aws_db_subnet_group" "rds_subnets" {
   name       = "rds-subnets-uce-m4-${var.environment}"
   subnet_ids = [aws_subnet.private_1.id, aws_subnet.private_2.id]
@@ -195,9 +189,7 @@ resource "aws_elasticache_cluster" "cache_redis" {
   port                 = 6379
 }
 
-# ==============================================================================
-# INSTANCIAS DE MICROSERVICIOS (ENTORNO QA)
-# ==============================================================================
+
 resource "aws_instance" "sec_service_qa" {
   count                  = var.environment == "qa" ? 1 : 0
   ami                    = "ami-0c7217cdde317cfec"
@@ -218,9 +210,17 @@ resource "aws_instance" "notify_service_qa" {
   tags                   = { Name = "Notification-Service-QA-M4" }
 }
 
-# ==============================================================================
-# ALTA DISPONIBILIDAD Y BALANCEO (ENTORNO PROD)
-# ==============================================================================
+resource "aws_instance" "tracking_service_qa" {
+  count                  = var.environment == "qa" ? 1 : 0
+  ami                    = "ami-0c7217cdde317cfec"
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.private_1.id
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name               = "vockey" 
+  tags                   = { Name = "Tracking-Service-QA-M4" }
+}
+
+
 resource "aws_launch_template" "template_apps" {
   name_prefix   = "template-uce-m4-"
   image_id      = "ami-0c7217cdde317cfec"
@@ -232,17 +232,17 @@ resource "aws_launch_template" "template_apps" {
     security_groups             = [aws_security_group.sg_microservicios.id]
   }
 
-  # CONFIGURACIÓN AUTOMÁTICA EN PRODUCCIÓN CON IMÁGENES DUALES :prod-latest
+
   user_data = var.environment == "prod" ? base64encode(<<-EOF
               #!/bin/bash
               sudo apt-get update -y
               sudo apt-get install -y docker.io
               sudo systemctl start docker
               sudo systemctl enable docker
-              
-              # Pull y run desde el DockerHub de Xavier usando tag productivo obligatorios
+               
               sudo docker run -d -p 8001:8000 --name risk-service --restart unless-stopped xaandrade/academic-risk-service:prod-latest
               sudo docker run -d -p 8002:8000 --name notify-service --restart unless-stopped xaandrade/notification-service:prod-latest
+              sudo docker run -d -p 8003:8000 --name tracking-service --restart unless-stopped xaandrade/tracking-service:prod-latest
               EOF
   ) : null
 }
@@ -274,9 +274,7 @@ resource "aws_autoscaling_group" "asg_produccion" {
   }
 }
 
-# ==============================================================================
-# OUTPUTS
-# ==============================================================================
+
 output "bastion_public_ip" {
   value       = aws_instance.bastion_host.public_ip
   description = "Registrar este valor en el secreto correspondiente de GitHub"
