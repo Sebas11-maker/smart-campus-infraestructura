@@ -14,7 +14,7 @@ provider "aws" {
   region = var.aws_region
 }
 
-
+# --- VPC Y SUBREDES ---
 resource "aws_vpc" "vpc_modulo4" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
@@ -49,6 +49,7 @@ resource "aws_subnet" "private_2" {
   tags              = { Name = "subnet-private-2-m4-${var.environment}" }
 }
 
+# --- ENRUTAMIENTO ---
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.vpc_modulo4.id
   tags   = { Name = "igw-modulo4-${var.environment}" }
@@ -73,7 +74,7 @@ resource "aws_route_table_association" "pub_2_assoc" {
   route_table_id = aws_route_table.public_rt.id
 }
 
-# --- ENRUTAMIENTO PRIVADO INTERNO ---
+
 resource "aws_route_table" "private_rt" {
   vpc_id = aws_vpc.vpc_modulo4.id
   tags   = { Name = "private-rt-m4-${var.environment}" }
@@ -89,7 +90,7 @@ resource "aws_route_table_association" "priv_2_assoc" {
   route_table_id = aws_route_table.private_rt.id
 }
 
-
+# --- BASTION HOST ---
 resource "aws_instance" "bastion_host" {
   ami                         = "ami-0c7217cdde317cfec" 
   instance_type               = "t2.micro"
@@ -100,6 +101,7 @@ resource "aws_instance" "bastion_host" {
   tags                        = { Name = "Bastion-Host-UCE-M4-${var.environment}" }
 }
 
+# --- GRUPOS DE SEGURIDAD ---
 resource "aws_security_group" "sg_bastion" {
   name        = "sg_bastion_m4_${var.environment}"
   vpc_id      = aws_vpc.vpc_modulo4.id
@@ -146,7 +148,7 @@ resource "aws_security_group" "sg_microservicios" {
   }
 }
 
-
+# --- CAPA DE DATOS (RDS, MONGO, REDIS) ---
 resource "aws_db_subnet_group" "rds_subnets" {
   name       = "rds-subnets-uce-m4-${var.environment}"
   subnet_ids = [aws_subnet.private_1.id, aws_subnet.private_2.id]
@@ -154,7 +156,7 @@ resource "aws_db_subnet_group" "rds_subnets" {
 
 resource "aws_db_instance" "relational_db" {
   allocated_storage    = 20
-  engine               = "postgres"
+  engine                = "postgres"
   engine_version       = "15"
   instance_class       = "db.t3.micro"
   db_name              = "academic_reports_m4"
@@ -181,7 +183,7 @@ resource "aws_elasticache_subnet_group" "redis_subnets" {
 
 resource "aws_elasticache_cluster" "cache_redis" {
   cluster_id           = "redis-uce-m4-${var.environment}"
-  engine               = "redis"
+  engine                = "redis"
   node_type            = "cache.t3.micro"
   num_cache_nodes      = 1
   parameter_group_name = "default.redis7"
@@ -189,10 +191,10 @@ resource "aws_elasticache_cluster" "cache_redis" {
   port                 = 6379
 }
 
-
+# --- INSTANCIAS DE ENTORNO QA (CORREGIDAS CON AMI OPTIMIZADA CON DOCKER) ---
 resource "aws_instance" "sec_service_qa" {
   count                  = var.environment == "qa" ? 1 : 0
-  ami                    = "ami-0c7217cdde317cfec"
+  ami                    = "ami-0440d3b780d96b29d" 
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
@@ -202,7 +204,7 @@ resource "aws_instance" "sec_service_qa" {
 
 resource "aws_instance" "notify_service_qa" {
   count                  = var.environment == "qa" ? 1 : 0
-  ami                    = "ami-0c7217cdde317cfec"
+  ami                    = "ami-0440d3b780d96b29d" 
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
@@ -212,7 +214,7 @@ resource "aws_instance" "notify_service_qa" {
 
 resource "aws_instance" "tracking_service_qa" {
   count                  = var.environment == "qa" ? 1 : 0
-  ami                    = "ami-0c7217cdde317cfec"
+  ami                    = "ami-0440d3b780d96b29d" 
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
@@ -220,10 +222,10 @@ resource "aws_instance" "tracking_service_qa" {
   tags                   = { Name = "Tracking-Service-QA-M4" }
 }
 
-
+# --- PLANTILLA DE LANZAMIENTO PRODUCCIÓN (CORREGIDA CON AMI OPTIMIZADA CON DOCKER) ---
 resource "aws_launch_template" "template_apps" {
   name_prefix   = "template-uce-m4-"
-  image_id      = "ami-0c7217cdde317cfec"
+  image_id      = "ami-0440d3b780d96b29d" 
   instance_type = var.environment == "prod" ? "t3.medium" : "t2.micro"
   key_name      = "vockey" 
 
@@ -234,9 +236,10 @@ resource "aws_launch_template" "template_apps" {
 
 
   user_data = var.environment == "prod" ? base64encode(<<-EOF
+
               #!/bin/bash
-              sudo apt-get update -y
-              sudo apt-get install -y docker.io
+
+
               sudo systemctl start docker
               sudo systemctl enable docker
                
@@ -247,6 +250,7 @@ resource "aws_launch_template" "template_apps" {
   ) : null
 }
 
+# --- BALANCEADOR DE CARGA ---
 resource "aws_lb" "load_balancer" {
   name               = "elb-uce-m4-${var.environment}"
   internal           = false
@@ -255,6 +259,7 @@ resource "aws_lb" "load_balancer" {
   subnets            = [aws_subnet.public_1.id, aws_subnet.public_2.id]
 }
 
+# --- AUTO SCALING GROUP PRODUCCIÓN ---
 resource "aws_autoscaling_group" "asg_produccion" {
   count               = var.environment == "prod" ? 1 : 0
   vpc_zone_identifier = [aws_subnet.private_1.id, aws_subnet.private_2.id]
@@ -274,7 +279,7 @@ resource "aws_autoscaling_group" "asg_produccion" {
   }
 }
 
-
+# --- OUTPUTS ---
 output "bastion_public_ip" {
   value       = aws_instance.bastion_host.public_ip
   description = "Registrar este valor en el secreto correspondiente de GitHub"
