@@ -1,0 +1,55 @@
+name: 'Terraform CD - Despliegue Paralelo Anticipado (QA & PROD)'
+
+on:
+  push:
+    branches:
+      - qa # Se dispara inmediatamente cuando subes cambios a la rama qa
+
+jobs:
+  infraestructura-qa:
+    name: 'Desplegar Infraestructura QA'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copiar Código
+        uses: actions/checkout@v3
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configurar Credenciales Lab QA
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_QA }}
+          aws-region: us-east-1
+
+      - name: Terraform Init & Apply (QA)
+        run: |
+          cd qa
+          terraform init -input=false -backend-config="bucket=${{ secrets.S3_BUCKET_QA }}"
+          terraform apply -auto-approve
+
+  infraestructura-prod:
+    name: 'Desplegar Infraestructura PROD'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copiar Código
+        uses: actions/checkout@v3
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configurar Credenciales Lab PROD
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_PROD }}
+          aws-region: us-east-1
+
+      - name: Terraform Init & Apply (PROD)
+        run: |
+          cd prod
+          terraform init -input=false -backend-config="bucket=${{ secrets.S3_BUCKET_PROD }}"
+          terraform apply -auto-approve
