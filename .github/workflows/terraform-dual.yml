@@ -1,55 +1,85 @@
-name: 'Terraform CD - Despliegue Paralelo Anticipado (QA & PROD)'
+name: Terraform CD - QA y PROD
 
 on:
   push:
     branches:
-      - qa # Se dispara inmediatamente cuando subes cambios a la rama qa
+      - qa
 
 jobs:
-  infraestructura-qa:
-    name: 'Desplegar Infraestructura QA'
+
+  terraform-qa:
+    name: Desplegar Infraestructura QA
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: qa
+
     steps:
-      - name: Copiar Código
-        uses: actions/checkout@v3
+
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Configurar Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
 
-      - name: Configurar Credenciales Lab QA
-        uses: aws-actions/configure-aws-credentials@v2
+      - name: Credenciales AWS QA
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_QA }}
           aws-region: us-east-1
 
-      - name: Terraform Init & Apply (QA)
-        run: |
-          cd qa
-          terraform init -input=false -backend-config="bucket=${{ secrets.S3_BUCKET_QA }}"
-          terraform apply -auto-approve
+      - name: Terraform Init QA
+        run: terraform init
 
-  infraestructura-prod:
-    name: 'Desplegar Infraestructura PROD'
+      - name: Terraform Validate QA
+        run: terraform validate
+
+      - name: Terraform Plan QA
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply QA
+        run: terraform apply -auto-approve tfplan
+
+  terraform-prod:
+    name: Desplegar Infraestructura PROD
     runs-on: ubuntu-latest
+
+    needs: terraform-qa
+
+    defaults:
+      run:
+        working-directory: prod
+
     steps:
-      - name: Copiar Código
-        uses: actions/checkout@v3
+
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Configurar Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
 
-      - name: Configurar Credenciales Lab PROD
-        uses: aws-actions/configure-aws-credentials@v2
+      - name: Credenciales AWS PROD
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_PROD }}
           aws-region: us-east-1
 
-      - name: Terraform Init & Apply (PROD)
-        run: |
-          cd prod
-          terraform init -input=false -backend-config="bucket=${{ secrets.S3_BUCKET_PROD }}"
-          terraform apply -auto-approve
+      - name: Terraform Init PROD
+        run: terraform init
+
+      - name: Terraform Validate PROD
+        run: terraform validate
+
+      - name: Terraform Plan PROD
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply PROD
+        run: terraform apply -auto-approve tfplan
+
+      - name: Mostrar Outputs
+        run: terraform output
