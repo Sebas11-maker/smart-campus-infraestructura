@@ -18,10 +18,12 @@ provider "aws" {
 }
 
 # =========================
-# VPC (PROD)
+# VPC PROD
 # =========================
 resource "aws_vpc" "vpc_prod" {
-  cidr_block = "10.1.0.0/16"
+  cidr_block           = "10.1.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
 
   tags = {
     Name = "vpc-prod-m4"
@@ -36,9 +38,9 @@ resource "aws_vpc" "vpc_prod" {
 # SUBNETS
 # =========================
 resource "aws_subnet" "public_1" {
-  vpc_id            = aws_vpc.vpc_prod.id
-  cidr_block        = "10.1.1.0/24"
-  availability_zone = "us-east-1a"
+  vpc_id                  = aws_vpc.vpc_prod.id
+  cidr_block              = "10.1.1.0/24"
+  availability_zone      = "us-east-1a"
   map_public_ip_on_launch = true
 
   tags = {
@@ -47,9 +49,9 @@ resource "aws_subnet" "public_1" {
 }
 
 resource "aws_subnet" "public_2" {
-  vpc_id            = aws_vpc.vpc_prod.id
-  cidr_block        = "10.1.2.0/24"
-  availability_zone = "us-east-1b"
+  vpc_id                  = aws_vpc.vpc_prod.id
+  cidr_block              = "10.1.2.0/24"
+  availability_zone      = "us-east-1b"
   map_public_ip_on_launch = true
 
   tags = {
@@ -73,7 +75,7 @@ resource "aws_internet_gateway" "igw" {
 }
 
 # =========================
-# NAT
+# NAT GATEWAY
 # =========================
 resource "aws_eip" "nat_eip" {
   domain = "vpc"
@@ -91,10 +93,10 @@ resource "aws_nat_gateway" "nat_gateway" {
 }
 
 # =========================
-# SECURITY GROUP
+# SECURITY GROUP (FIX ERROR SG-)
 # =========================
 resource "aws_security_group" "sg_microservicios" {
-  name_prefix = "microservices-prod-"
+  name        = "microservices-prod-sg"
   description = "Allow HTTP and SSH traffic"
   vpc_id      = aws_vpc.vpc_prod.id
 
@@ -124,11 +126,15 @@ resource "aws_security_group" "sg_microservicios" {
 # LAUNCH TEMPLATE
 # =========================
 resource "aws_launch_template" "template_apps" {
-  name_prefix   = "lt-prod-m4"
+  name_prefix   = "lt-prod-m4-"
   image_id      = "ami-0c02fb55956c7d316"
   instance_type = "t2.micro"
 
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # =========================
@@ -158,6 +164,10 @@ resource "aws_lb" "load_balancer" {
   ]
 
   security_groups = [aws_security_group.sg_microservicios.id]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_lb_listener" "listener_http" {
@@ -172,13 +182,14 @@ resource "aws_lb_listener" "listener_http" {
 }
 
 # =========================
-# AUTO SCALING GROUP
+# AUTO SCALING GROUP (HA PROD)
 # =========================
 resource "aws_autoscaling_group" "asg_produccion" {
   name                = "asg-prod-m4"
   desired_capacity    = 2
   max_size            = 4
   min_size            = 2
+
   vpc_zone_identifier = [
     aws_subnet.public_1.id,
     aws_subnet.public_2.id
@@ -215,3 +226,4 @@ resource "aws_route_table_association" "public_2_assoc" {
   subnet_id      = aws_subnet.public_2.id
   route_table_id = aws_route_table.public_rt.id
 }
+
