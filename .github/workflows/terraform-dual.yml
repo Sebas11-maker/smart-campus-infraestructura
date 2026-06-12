@@ -16,6 +16,10 @@ jobs:
         working-directory: ./qa
 
     steps:
+
+      - name: Terraform Init (reconfigure)
+        run: terraform init -reconfigure
+
       - name: Checkout code
         uses: actions/checkout@v3
 
