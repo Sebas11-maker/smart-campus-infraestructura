@@ -26,8 +26,13 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_QA }} # Soluciona el error del token de AWS Academy
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_QA }} # Requisito de AWS Academy
           aws-region: us-east-1
+
+      - name: Configurar e Instalar Terraform en el Runner
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0" # Asegura una versión estable y moderna
 
       - name: Terraform Init QA
         run: terraform init -reconfigure
@@ -65,8 +70,13 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_PROD }} # Soluciona el error del token en el backend de PROD
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_PROD }} # Requisito de AWS Academy
           aws-region: us-east-1
+
+      - name: Configurar e Instalar Terraform en el Runner
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
 
       - name: Terraform Init PROD
         run: terraform init -reconfigure
