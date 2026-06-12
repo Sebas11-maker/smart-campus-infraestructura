@@ -1,20 +1,18 @@
-name: Terraform QA → PROD (Auto Promotion)
+name: Terraform QA → PROD (Unified Push)
 
 on:
   push:
     branches:
-      - qa   
+      - qa # Se dispara únicamente al enviar cambios a la rama qa
   workflow_dispatch:
 
 jobs:
-
 # =========================
 # QA DEPLOY
 # =========================
   deploy-qa:
     name: Deploy QA Environment
     runs-on: ubuntu-latest
-
     defaults:
       run:
         working-directory: qa
@@ -28,6 +26,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_QA }} # Soluciona el error del token de AWS Academy
           aws-region: us-east-1
 
       - name: Terraform Init QA
@@ -45,14 +44,13 @@ jobs:
       - name: QA Outputs Evidence
         run: terraform output
 
-
 # =========================
-# PROD DEPLOY (AUTO DESPUÉS DE QA)
+# PROD DEPLOY (SE EJECUTA INMEDIATAMENTE DESPUÉS)
 # =========================
   deploy-prod:
     name: Deploy PROD Environment
     runs-on: ubuntu-latest
-    needs: deploy-qa   
+    needs: deploy-qa # Garantiza que primero termine QA con éxito
 
     defaults:
       run:
@@ -67,6 +65,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_PROD }} # Soluciona el error del token en el backend de PROD
           aws-region: us-east-1
 
       - name: Terraform Init PROD
