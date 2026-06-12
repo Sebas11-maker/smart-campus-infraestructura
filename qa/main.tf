@@ -212,7 +212,7 @@ resource "aws_instance" "bastion_host" {
 }
 
 # =====================================================
-# MONGODB
+# MONGODB SERVER
 # =====================================================
 
 resource "aws_instance" "mongodb_server" {
@@ -232,25 +232,36 @@ resource "aws_instance" "mongodb_server" {
 }
 
 # =====================================================
-# USER DATA DOCKER
+# USER DATA - INSTALACIÓN AUTOMÁTICA DE DOCKER
 # =====================================================
 
 locals {
   docker_install_script = <<-EOF
-#!/bin/bash
+    #!/bin/bash
 
-dnf update -y
+    dnf update -y
 
-dnf install -y docker iptables
+    dnf install docker -y
 
-systemctl enable docker
-systemctl start docker
+    systemctl enable docker
+    systemctl start docker
 
-usermod -aG docker ec2-user
+    usermod -aG docker ec2-user
 
-docker --version > /tmp/docker-installed.txt
+    mkdir -p /etc/docker
 
-EOF
+    cat <<CONFIG >/etc/docker/daemon.json
+    {
+      "log-driver":"json-file",
+      "log-opts":{
+        "max-size":"10m",
+        "max-file":"3"
+      }
+    }
+    CONFIG
+
+    systemctl restart docker
+  EOF
 }
 
 # =====================================================
