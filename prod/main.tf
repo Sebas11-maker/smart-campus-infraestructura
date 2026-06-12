@@ -90,6 +90,10 @@ resource "aws_nat_gateway" "nat_gateway" {
   tags = {
     Name = "nat-prod"
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # =========================
@@ -156,7 +160,7 @@ resource "aws_lb_target_group" "tg_tracking" {
 }
 
 # =========================
-# APPLICATION LOAD BALANCER
+# LOAD BALANCER
 # =========================
 resource "aws_lb" "load_balancer" {
   name               = "elb-uce-m4-prod"
@@ -186,13 +190,14 @@ resource "aws_lb_listener" "listener_http" {
 }
 
 # =========================
-# AUTO SCALING GROUP (PROD)
+# AUTO SCALING GROUP (FIXED)
 # =========================
 resource "aws_autoscaling_group" "asg_produccion" {
   name                = "asg-prod-m4"
   desired_capacity    = 2
   max_size            = 4
   min_size            = 2
+
   vpc_zone_identifier = [
     aws_subnet.public_1.id,
     aws_subnet.public_2.id
@@ -205,7 +210,15 @@ resource "aws_autoscaling_group" "asg_produccion" {
     version = "$Latest"
   }
 
-  health_check_type = "EC2"
+  health_check_type         = "ELB"
+  health_check_grace_period = 120
+
+  wait_for_capacity_timeout = "10m"
+
+  depends_on = [
+    aws_lb.load_balancer,
+    aws_nat_gateway.nat_gateway
+  ]
 
   lifecycle {
     create_before_destroy = true
@@ -235,12 +248,19 @@ resource "aws_route_table_association" "public_2_assoc" {
 }
 
 # =========================
-# OUTPUTS
+# OUTPUTS (FIXED)
 # =========================
 output "load_balancer_dns" {
-  value = aws_lb.load_balancer.dns_name
+  value       = aws_lb.load_balancer.dns_name
+  description = "DNS del ALB para pruebas en Postman"
 }
 
 output "asg_name" {
-  value = aws_autoscaling_group.asg_produccion.name
+  value       = aws_autoscaling_group.asg_produccion.name
+  description = "Auto Scaling Group activo en producción"
+}
+
+output "nat_gateway_id" {
+  value       = aws_nat_gateway.nat_gateway.id
+  description = "NAT Gateway de producción"
 }
