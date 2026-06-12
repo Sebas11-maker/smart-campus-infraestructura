@@ -17,9 +17,9 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# =========================
-# VPC PROD
-# =========================
+# =====================================================
+# VPC PRODUCCIÓN
+# =====================================================
 resource "aws_vpc" "vpc_prod" {
   cidr_block           = "10.1.0.0/16"
   enable_dns_support   = true
@@ -34,13 +34,13 @@ resource "aws_vpc" "vpc_prod" {
   }
 }
 
-# =========================
-# SUBNETS
-# =========================
+# =====================================================
+# SUBNETS PUBLICAS (ALTA DISPONIBILIDAD)
+# =====================================================
 resource "aws_subnet" "public_1" {
   vpc_id                  = aws_vpc.vpc_prod.id
   cidr_block              = "10.1.1.0/24"
-  availability_zone      = "us-east-1a"
+  availability_zone       = "us-east-1a"
   map_public_ip_on_launch = true
 
   tags = {
@@ -51,7 +51,7 @@ resource "aws_subnet" "public_1" {
 resource "aws_subnet" "public_2" {
   vpc_id                  = aws_vpc.vpc_prod.id
   cidr_block              = "10.1.2.0/24"
-  availability_zone      = "us-east-1b"
+  availability_zone       = "us-east-1b"
   map_public_ip_on_launch = true
 
   tags = {
@@ -59,9 +59,9 @@ resource "aws_subnet" "public_2" {
   }
 }
 
-# =========================
+# =====================================================
 # INTERNET GATEWAY
-# =========================
+# =====================================================
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.vpc_prod.id
 
@@ -74,9 +74,9 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-# =========================
+# =====================================================
 # NAT GATEWAY
-# =========================
+# =====================================================
 resource "aws_eip" "nat_eip" {
   domain = "vpc"
 }
@@ -92,9 +92,9 @@ resource "aws_nat_gateway" "nat_gateway" {
   }
 }
 
-# =========================
-# SECURITY GROUP (FIX ERROR SG-)
-# =========================
+# =====================================================
+# SECURITY GROUP MICROSERVICIOS
+# =====================================================
 resource "aws_security_group" "sg_microservicios" {
   name        = "microservices-prod-sg"
   description = "Allow HTTP and SSH traffic"
@@ -122,9 +122,9 @@ resource "aws_security_group" "sg_microservicios" {
   }
 }
 
-# =========================
+# =====================================================
 # LAUNCH TEMPLATE
-# =========================
+# =====================================================
 resource "aws_launch_template" "template_apps" {
   name_prefix   = "lt-prod-m4-"
   image_id      = "ami-0c02fb55956c7d316"
@@ -137,9 +137,9 @@ resource "aws_launch_template" "template_apps" {
   }
 }
 
-# =========================
+# =====================================================
 # TARGET GROUP
-# =========================
+# =====================================================
 resource "aws_lb_target_group" "tg_tracking" {
   name     = "tg-tracking-prod"
   port     = 80
@@ -151,9 +151,9 @@ resource "aws_lb_target_group" "tg_tracking" {
   }
 }
 
-# =========================
+# =====================================================
 # LOAD BALANCER
-# =========================
+# =====================================================
 resource "aws_lb" "load_balancer" {
   name               = "elb-uce-m4-prod"
   load_balancer_type = "application"
@@ -181,9 +181,9 @@ resource "aws_lb_listener" "listener_http" {
   }
 }
 
-# =========================
+# =====================================================
 # AUTO SCALING GROUP (HA PROD)
-# =========================
+# =====================================================
 resource "aws_autoscaling_group" "asg_produccion" {
   name                = "asg-prod-m4"
   desired_capacity    = 2
@@ -205,9 +205,9 @@ resource "aws_autoscaling_group" "asg_produccion" {
   health_check_type = "EC2"
 }
 
-# =========================
+# =====================================================
 # ROUTES
-# =========================
+# =====================================================
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.vpc_prod.id
 
@@ -226,4 +226,3 @@ resource "aws_route_table_association" "public_2_assoc" {
   subnet_id      = aws_subnet.public_2.id
   route_table_id = aws_route_table.public_rt.id
 }
-
