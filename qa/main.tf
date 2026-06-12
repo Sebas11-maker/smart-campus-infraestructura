@@ -237,13 +237,20 @@ resource "aws_instance" "mongodb_server" {
 
 locals {
   docker_install_script = <<-EOF
-    #!/bin/bash
-    dnf update -y
-    dnf install docker -y
-    systemctl enable docker
-    systemctl start docker
-    usermod -aG docker ec2-user
-  EOF
+#!/bin/bash
+
+dnf update -y
+
+dnf install -y docker iptables
+
+systemctl enable docker
+systemctl start docker
+
+usermod -aG docker ec2-user
+
+docker --version > /tmp/docker-installed.txt
+
+EOF
 }
 
 # =====================================================
