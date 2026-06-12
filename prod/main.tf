@@ -246,21 +246,3 @@ resource "aws_route_table_association" "public_2_assoc" {
   subnet_id      = aws_subnet.public_2.id
   route_table_id = aws_route_table.public_rt.id
 }
-
-# =========================
-# OUTPUTS (FIXED)
-# =========================
-output "load_balancer_dns" {
-  value       = aws_lb.load_balancer.dns_name
-  description = "DNS del ALB para pruebas en Postman"
-}
-
-output "asg_name" {
-  value       = aws_autoscaling_group.asg_produccion.name
-  description = "Auto Scaling Group activo en producción"
-}
-
-output "nat_gateway_id" {
-  value       = aws_nat_gateway.nat_gateway.id
-  description = "NAT Gateway de producción"
-}
