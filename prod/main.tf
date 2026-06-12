@@ -7,7 +7,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "smart-campus-tfstate-prod"
+    bucket = "s3-smartcampus-uce-m4-prod1"
     key    = "prod/terraform.tfstate"
     region = "us-east-1"
   }
@@ -33,13 +33,12 @@ resource "aws_vpc" "vpc_prod" {
 }
 
 # =========================
-# SUBNETS (Multi-AZ)
+# SUBNETS
 # =========================
 resource "aws_subnet" "public_1" {
   vpc_id            = aws_vpc.vpc_prod.id
   cidr_block        = "10.1.1.0/24"
   availability_zone = "us-east-1a"
-
   map_public_ip_on_launch = true
 
   tags = {
@@ -51,7 +50,6 @@ resource "aws_subnet" "public_2" {
   vpc_id            = aws_vpc.vpc_prod.id
   cidr_block        = "10.1.2.0/24"
   availability_zone = "us-east-1b"
-
   map_public_ip_on_launch = true
 
   tags = {
@@ -65,17 +63,17 @@ resource "aws_subnet" "public_2" {
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.vpc_prod.id
 
-  lifecycle {
-    prevent_destroy = true
-  }
-
   tags = {
     Name = "igw-prod"
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
 # =========================
-# NAT GATEWAY
+# NAT
 # =========================
 resource "aws_eip" "nat_eip" {
   domain = "vpc"
@@ -90,19 +88,14 @@ resource "aws_nat_gateway" "nat_gateway" {
   tags = {
     Name = "nat-prod"
   }
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 # =========================
 # SECURITY GROUP
 # =========================
 resource "aws_security_group" "sg_microservicios" {
-  name        = "sg-microservices-prod"
-  description = "Allow HTTP traffic"
-  vpc_id      = aws_vpc.vpc_prod.id
+  name   = "sg-microservices-prod"
+  vpc_id = aws_vpc.vpc_prod.id
 
   ingress {
     from_port   = 80
@@ -124,10 +117,6 @@ resource "aws_security_group" "sg_microservicios" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 # =========================
@@ -139,10 +128,6 @@ resource "aws_launch_template" "template_apps" {
   instance_type = "t2.micro"
 
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-
-  lifecycle {
-    create_before_destroy = true
-  }
 }
 
 # =========================
@@ -172,10 +157,6 @@ resource "aws_lb" "load_balancer" {
   ]
 
   security_groups = [aws_security_group.sg_microservicios.id]
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 resource "aws_lb_listener" "listener_http" {
@@ -190,14 +171,13 @@ resource "aws_lb_listener" "listener_http" {
 }
 
 # =========================
-# AUTO SCALING GROUP (FIXED)
+# AUTO SCALING GROUP
 # =========================
 resource "aws_autoscaling_group" "asg_produccion" {
   name                = "asg-prod-m4"
   desired_capacity    = 2
   max_size            = 4
   min_size            = 2
-
   vpc_zone_identifier = [
     aws_subnet.public_1.id,
     aws_subnet.public_2.id
@@ -210,23 +190,11 @@ resource "aws_autoscaling_group" "asg_produccion" {
     version = "$Latest"
   }
 
-  health_check_type         = "ELB"
-  health_check_grace_period = 120
-
-  wait_for_capacity_timeout = "10m"
-
-  depends_on = [
-    aws_lb.load_balancer,
-    aws_nat_gateway.nat_gateway
-  ]
-
-  lifecycle {
-    create_before_destroy = true
-  }
+  health_check_type = "EC2"
 }
 
 # =========================
-# ROUTE TABLE
+# ROUTES
 # =========================
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.vpc_prod.id
