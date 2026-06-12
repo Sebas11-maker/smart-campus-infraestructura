@@ -7,176 +7,109 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "s3-smartcampus-uce-m4-prod1"
+    bucket = "smart-campus-tfstate-prod"
     key    = "prod/terraform.tfstate"
     region = "us-east-1"
   }
 }
 
 provider "aws" {
-  region = var.aws_region
+  region = "us-east-1"
 }
 
-# =====================================================
-# VPC
-# =====================================================
-
-resource "aws_vpc" "vpc_modulo4" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
+# =========================
+# VPC (PROD)
+# =========================
+resource "aws_vpc" "vpc_prod" {
+  cidr_block = "10.1.0.0/16"
 
   tags = {
-    Name = "vpc-smartcampus-m4-prod"
+    Name = "vpc-prod-m4"
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
-# =====================================================
-# SUBNETS PUBLICAS
-# =====================================================
-
+# =========================
+# SUBNETS (Multi-AZ)
+# =========================
 resource "aws_subnet" "public_1" {
-  vpc_id                  = aws_vpc.vpc_modulo4.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-1a"
+  vpc_id            = aws_vpc.vpc_prod.id
+  cidr_block        = "10.1.1.0/24"
+  availability_zone = "us-east-1a"
+
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "subnet-public-1-m4-prod"
+    Name = "public-subnet-1-prod"
   }
 }
 
 resource "aws_subnet" "public_2" {
-  vpc_id                  = aws_vpc.vpc_modulo4.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = "us-east-1b"
+  vpc_id            = aws_vpc.vpc_prod.id
+  cidr_block        = "10.1.2.0/24"
+  availability_zone = "us-east-1b"
+
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "subnet-public-2-m4-prod"
+    Name = "public-subnet-2-prod"
   }
 }
 
-# =====================================================
-# SUBNETS PRIVADAS
-# =====================================================
-
-resource "aws_subnet" "private_1" {
-  vpc_id            = aws_vpc.vpc_modulo4.id
-  cidr_block        = "10.0.3.0/24"
-  availability_zone = "us-east-1a"
-
-  tags = {
-    Name = "subnet-private-1-m4-prod"
-  }
-}
-
-resource "aws_subnet" "private_2" {
-  vpc_id            = aws_vpc.vpc_modulo4.id
-  cidr_block        = "10.0.4.0/24"
-  availability_zone = "us-east-1b"
-
-  tags = {
-    Name = "subnet-private-2-m4-prod"
-  }
-}
-
-# =====================================================
+# =========================
 # INTERNET GATEWAY
-# =====================================================
-
+# =========================
 resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.vpc_modulo4.id
+  vpc_id = aws_vpc.vpc_prod.id
+
+  lifecycle {
+    prevent_destroy = true
+  }
 
   tags = {
-    Name = "igw-modulo4-prod"
+    Name = "igw-prod"
   }
 }
 
-# =====================================================
-# PUBLIC ROUTE TABLE
-# =====================================================
-
-resource "aws_route_table" "public_rt" {
-  vpc_id = aws_vpc.vpc_modulo4.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-}
-
-resource "aws_route_table_association" "pub_1_assoc" {
-  subnet_id      = aws_subnet.public_1.id
-  route_table_id = aws_route_table.public_rt.id
-}
-
-resource "aws_route_table_association" "pub_2_assoc" {
-  subnet_id      = aws_subnet.public_2.id
-  route_table_id = aws_route_table.public_rt.id
-}
-
-# =====================================================
-# EIP NAT
-# =====================================================
-
+# =========================
+# NAT GATEWAY
+# =========================
 resource "aws_eip" "nat_eip" {
   domain = "vpc"
 }
-
-# =====================================================
-# NAT GATEWAY
-# =====================================================
 
 resource "aws_nat_gateway" "nat_gateway" {
   allocation_id = aws_eip.nat_eip.id
   subnet_id     = aws_subnet.public_1.id
 
-  depends_on = [
-    aws_internet_gateway.igw
-  ]
-}
+  depends_on = [aws_internet_gateway.igw]
 
-# =====================================================
-# PRIVATE ROUTE TABLE
-# =====================================================
-
-resource "aws_route_table" "private_rt" {
-  vpc_id = aws_vpc.vpc_modulo4.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat_gateway.id
+  tags = {
+    Name = "nat-prod"
   }
 }
 
-resource "aws_route_table_association" "private_1_assoc" {
-  subnet_id      = aws_subnet.private_1.id
-  route_table_id = aws_route_table.private_rt.id
-}
-
-resource "aws_route_table_association" "private_2_assoc" {
-  subnet_id      = aws_subnet.private_2.id
-  route_table_id = aws_route_table.private_rt.id
-}
-
-# =====================================================
+# =========================
 # SECURITY GROUP
-# =====================================================
-
+# =========================
 resource "aws_security_group" "sg_microservicios" {
-  name   = "sg_apps_uce_m4_prod"
-  vpc_id = aws_vpc.vpc_modulo4.id
+  name        = "sg-microservices-prod"
+  description = "Allow HTTP traffic"
+  vpc_id      = aws_vpc.vpc_prod.id
 
   ingress {
-    from_port   = 22
-    to_port     = 22
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-    from_port   = 8001
-    to_port     = 8003
+    from_port   = 22
+    to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -187,150 +120,63 @@ resource "aws_security_group" "sg_microservicios" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-}
 
-# =====================================================
-# BASTION HOST
-# =====================================================
-
-resource "aws_instance" "bastion_host" {
-  ami                         = "ami-0c7217cdde317cfec"
-  instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.public_1.id
-  associate_public_ip_address = true
-
-  vpc_security_group_ids = [
-    aws_security_group.sg_microservicios.id
-  ]
-
-  key_name = "vockey"
-
-  tags = {
-    Name = "Bastion-Host-UCE-M4-prod"
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
-# =====================================================
-# MONGODB
-# =====================================================
-
-resource "aws_instance" "mongodb_server" {
-  ami           = "ami-0c7217cdde317cfec"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private_1.id
-
-  vpc_security_group_ids = [
-    aws_security_group.sg_microservicios.id
-  ]
-
-  key_name = "vockey"
-
-  tags = {
-    Name = "MongoDB-Server-UCE-M4-prod"
-  }
-}
-
-# =====================================================
+# =========================
 # LAUNCH TEMPLATE
-# =====================================================
-
+# =========================
 resource "aws_launch_template" "template_apps" {
+  name_prefix   = "lt-prod-m4"
+  image_id      = "ami-0c02fb55956c7d316"
+  instance_type = "t2.micro"
 
-  name_prefix   = "template-uce-m4-prod-"
-  image_id      = "ami-0440d3b780d96b29d"
-  instance_type = "t3.medium"
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
 
-  key_name = "vockey"
-
-  network_interfaces {
-    associate_public_ip_address = false
-    security_groups = [
-      aws_security_group.sg_microservicios.id
-    ]
+  lifecycle {
+    create_before_destroy = true
   }
-
-  user_data = base64encode(<<-EOF
-#!/bin/bash
-
-dnf update -y
-
-dnf install docker -y
-
-systemctl enable docker
-systemctl start docker
-
-docker pull xaandrade/academic-risk-service:prod-latest
-docker pull xaandrade/notification-service:prod-latest
-docker pull xaandrade/tracking-service:prod-latest
-
-docker run -d \
---name academic-risk \
---restart unless-stopped \
--p 8001:8000 \
-xaandrade/academic-risk-service:prod-latest
-
-docker run -d \
---name notification-service \
---restart unless-stopped \
--p 8002:8000 \
-xaandrade/notification-service:prod-latest
-
-docker run -d \
---name tracking-service \
---restart unless-stopped \
--p 8003:8000 \
-xaandrade/tracking-service:prod-latest
-
-EOF
-  )
 }
 
-# =====================================================
+# =========================
 # TARGET GROUP
-# =====================================================
-
+# =========================
 resource "aws_lb_target_group" "tg_tracking" {
-
-  name        = "tg-tracking-prod"
-  port        = 8003
-  protocol    = "HTTP"
-  vpc_id      = aws_vpc.vpc_modulo4.id
-  target_type = "instance"
+  name     = "tg-tracking-prod"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.vpc_prod.id
 
   health_check {
     path = "/"
-    port = "8003"
   }
 }
 
-# =====================================================
-# LOAD BALANCER
-# =====================================================
-
+# =========================
+# APPLICATION LOAD BALANCER
+# =========================
 resource "aws_lb" "load_balancer" {
-
-  name               = "alb-smartcampus-prod"
-  internal           = false
+  name               = "elb-uce-m4-prod"
   load_balancer_type = "application"
-
-  security_groups = [
-    aws_security_group.sg_microservicios.id
-  ]
 
   subnets = [
     aws_subnet.public_1.id,
     aws_subnet.public_2.id
   ]
+
+  security_groups = [aws_security_group.sg_microservicios.id]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# =====================================================
-# LISTENER
-# =====================================================
-
 resource "aws_lb_listener" "listener_http" {
-
   load_balancer_arn = aws_lb.load_balancer.arn
-  port              = 8003
+  port              = 80
   protocol          = "HTTP"
 
   default_action {
@@ -339,35 +185,62 @@ resource "aws_lb_listener" "listener_http" {
   }
 }
 
-# =====================================================
-# AUTO SCALING GROUP
-# =====================================================
-
+# =========================
+# AUTO SCALING GROUP (PROD)
+# =========================
 resource "aws_autoscaling_group" "asg_produccion" {
-
-  name = "asg_produccion"
-
-  desired_capacity = 2
-  max_size         = 4
-  min_size         = 1
-
+  name                = "asg-prod-m4"
+  desired_capacity    = 2
+  max_size            = 4
+  min_size            = 2
   vpc_zone_identifier = [
-    aws_subnet.private_1.id,
-    aws_subnet.private_2.id
+    aws_subnet.public_1.id,
+    aws_subnet.public_2.id
   ]
+
+  target_group_arns = [aws_lb_target_group.tg_tracking.arn]
 
   launch_template {
     id      = aws_launch_template.template_apps.id
     version = "$Latest"
   }
 
-  target_group_arns = [
-    aws_lb_target_group.tg_tracking.arn
-  ]
+  health_check_type = "EC2"
 
-  tag {
-    key                 = "Name"
-    value               = "asg_produccion"
-    propagate_at_launch = true
+  lifecycle {
+    create_before_destroy = true
   }
+}
+
+# =========================
+# ROUTE TABLE
+# =========================
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.vpc_prod.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+}
+
+resource "aws_route_table_association" "public_1_assoc" {
+  subnet_id      = aws_subnet.public_1.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+resource "aws_route_table_association" "public_2_assoc" {
+  subnet_id      = aws_subnet.public_2.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+# =========================
+# OUTPUTS
+# =========================
+output "load_balancer_dns" {
+  value = aws_lb.load_balancer.dns_name
+}
+
+output "asg_name" {
+  value = aws_autoscaling_group.asg_produccion.name
 }
