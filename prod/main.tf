@@ -94,8 +94,9 @@ resource "aws_nat_gateway" "nat_gateway" {
 # SECURITY GROUP
 # =========================
 resource "aws_security_group" "sg_microservicios" {
-  name   = "sg-microservices-prod"
-  vpc_id = aws_vpc.vpc_prod.id
+  name_prefix = "microservices-prod-"
+  description = "Allow HTTP and SSH traffic"
+  vpc_id      = aws_vpc.vpc_prod.id
 
   ingress {
     from_port   = 80
