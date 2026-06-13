@@ -123,7 +123,7 @@ resource "aws_security_group" "sg_microservicios" {
 }
 
 # =====================================================
-# LAUNCH TEMPLATE
+# LAUNCH TEMPLATE (CORREGIDO CON TU USUARIO REAL)
 # =====================================================
 resource "aws_launch_template" "template_apps" {
   name_prefix   = "lt-prod-m4-"
@@ -131,6 +131,30 @@ resource "aws_launch_template" "template_apps" {
   instance_type = "t2.micro"
 
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+
+  # 🌟 AUTOMATIZACIÓN INYECTADA CON TU REPOSITORIO REAL DE DOCKERHUB 🌟
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    # 1. Actualizar repositorios e instalar Docker de forma silenciosa
+    dnf update -y
+    dnf install -y docker
+
+    # 2. Levantar y asegurar el motor de Docker
+    systemctl start docker
+    systemctl enable docker
+    usermod -aG docker ec2-user
+
+    # 3. Descargar la imagen pública real desde tu cuenta 'xaandrade'
+    docker pull docker.io/xaandrade/tracking-service:prod
+
+    # 4. Desplegar el contenedor mapeando el puerto del ALB (80) al interno (8000)
+    docker run -d \
+      -p 80:8000 \
+      --name tracking-service-prod \
+      --restart unless-stopped \
+      docker.io/xaandrade/tracking-service:prod
+  EOF
+  )
 
   lifecycle {
     create_before_destroy = true
@@ -141,7 +165,7 @@ resource "aws_launch_template" "template_apps" {
 # TARGET GROUP
 # =====================================================
 resource "aws_lb_target_group" "tg_tracking" {
-name     = "tg-tracking-prod-v2" 
+  name     = "tg-tracking-prod-v2" 
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.vpc_prod.id
