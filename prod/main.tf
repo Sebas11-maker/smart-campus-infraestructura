@@ -141,7 +141,7 @@ resource "aws_launch_template" "template_apps" {
 # TARGET GROUP
 # =====================================================
 resource "aws_lb_target_group" "tg_tracking" {
-  name     = "tg-tracking-prod"
+name     = "tg-tracking-prod-v2" 
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.vpc_prod.id
