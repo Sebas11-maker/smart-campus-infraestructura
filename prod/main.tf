@@ -35,7 +35,7 @@ resource "aws_vpc" "vpc_prod" {
 }
 
 # =====================================================
-# SUBNETS PUBLICAS (ALTA DISPONIBILIDAD)
+# SUBNETS PUBLICAS
 # =====================================================
 resource "aws_subnet" "public_1" {
   vpc_id                  = aws_vpc.vpc_prod.id
@@ -93,16 +93,23 @@ resource "aws_nat_gateway" "nat_gateway" {
 }
 
 # =====================================================
-# SECURITY GROUP MICROSERVICIOS
+# SECURITY GROUP (ABRE PUERTOS PARA LOS 3 MICROS)
 # =====================================================
 resource "aws_security_group" "sg_microservicios" {
-  name        = "microservices-prod-sg"
-  description = "Allow HTTP and SSH traffic"
+  name        = "microservices-prod-v2-sg"
+  description = "Allow HTTP traffic for all services"
   vpc_id      = aws_vpc.vpc_prod.id
 
   ingress {
     from_port   = 80
     to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 8000
+    to_port     = 8002
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -123,7 +130,7 @@ resource "aws_security_group" "sg_microservicios" {
 }
 
 # =====================================================
-# LAUNCH TEMPLATE
+# LAUNCH TEMPLATE (DESPLIEGA LOS 3 CONTENEDORES)
 # =====================================================
 resource "aws_launch_template" "template_apps" {
   name_prefix   = "lt-prod-m4-"
@@ -132,42 +139,71 @@ resource "aws_launch_template" "template_apps" {
 
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
 
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    yum install -y docker
+    systemctl start docker
+    systemctl enable docker
+    usermod -aG docker ec2-user
+
+    # 1. Bajar las 3 imágenes desde DockerHub
+    docker pull docker.io/xaandrade/tracking-service:prod
+    docker pull docker.io/xaandrade/notification-service:prod
+    docker pull docker.io/xaandrade/academic-risk-service:prod
+
+    # 2. Levantar Microservicio 1: TRACKING (Puerto Interno 8000 -> Externo 8000)
+    docker run -d -p 8000:8000 --name tracking-service-prod -e ENV="production" --restart unless-stopped docker.io/xaandrade/tracking-service:prod
+
+    # 3. Levantar Microservicio 2: NOTIFICATION (Puerto Interno 8000 -> Externo 8001)
+    docker run -d -p 8001:8000 --name notification-service-prod -e ENV="production" --restart unless-stopped docker.io/xaandrade/notification-service:prod
+
+    # 4. Levantar Microservicio 3: ACADEMIC RISK (Puerto Interno 8000 -> Externo 8002)
+    docker run -d -p 8002:8000 --name academic-risk-service-prod -e ENV="production" --restart unless-stopped docker.io/xaandrade/academic-risk-service:prod
+  EOF
+  )
+
   lifecycle {
     create_before_destroy = true
   }
 }
 
 # =====================================================
-# TARGET GROUP
+# TARGET GROUPS INDEPENDIENTES
 # =====================================================
 resource "aws_lb_target_group" "tg_tracking" {
-name     = "tg-tracking-prod-v2" 
-  port     = 80
+  name     = "tg-tracking-prod-v2" 
+  port     = 8000
   protocol = "HTTP"
   vpc_id   = aws_vpc.vpc_prod.id
+  health_check { path = "/" }
+}
 
-  health_check {
-    path = "/"
-  }
+resource "aws_lb_target_group" "tg_notification" {
+  name     = "tg-notification-prod" 
+  port     = 8001
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.vpc_prod.id
+  health_check { path = "/" }
+}
+
+resource "aws_lb_target_group" "tg_academic_risk" {
+  name     = "tg-academic-risk-prod" 
+  port     = 8002
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.vpc_prod.id
+  health_check { path = "/" }
 }
 
 # =====================================================
-# LOAD BALANCER
+# LOAD BALANCER Y LISTENER BASE
 # =====================================================
 resource "aws_lb" "load_balancer" {
   name               = "elb-uce-m4-prod"
   load_balancer_type = "application"
+  subnets            = [aws_subnet.public_1.id, aws_subnet.public_2.id]
+  security_groups    = [aws_security_group.sg_microservicios.id]
 
-  subnets = [
-    aws_subnet.public_1.id,
-    aws_subnet.public_2.id
-  ]
-
-  security_groups = [aws_security_group.sg_microservicios.id]
-
-  lifecycle {
-    prevent_destroy = true
-  }
+  lifecycle { prevent_destroy = true }
 }
 
 resource "aws_lb_listener" "listener_http" {
@@ -182,20 +218,56 @@ resource "aws_lb_listener" "listener_http" {
 }
 
 # =====================================================
-# AUTO SCALING GROUP (HA PROD)
+# REGLAS INTELIGENTES DE ENRUTAMIENTO (PATH-BASED ROUTING)
+# =====================================================
+resource "aws_lb_listener_rule" "rule_notification" {
+  listener_arn = aws_lb_listener.listener_http.arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.tg_notification.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/notifications", "/notifications*"]
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "rule_academic_risk" {
+  listener_arn = aws_lb_listener.listener_http.arn
+  priority     = 20
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.tg_academic_risk.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/risk", "/risk*"]
+    }
+  }
+}
+
+# =====================================================
+# AUTO SCALING GROUP (HA CLUSTER)
 # =====================================================
 resource "aws_autoscaling_group" "asg_produccion" {
   name                = "asg-prod-m4"
   desired_capacity    = 2
   max_size            = 4
   min_size            = 2
-
-  vpc_zone_identifier = [
-    aws_subnet.public_1.id,
-    aws_subnet.public_2.id
+  vpc_zone_identifier = [aws_subnet.public_1.id, aws_subnet.public_2.id]
+  
+  # El ASG ahora vigila y alimenta los 3 destinos en simultáneo
+  target_group_arns   = [
+    aws_lb_target_group.tg_tracking.arn,
+    aws_lb_target_group.tg_notification.arn,
+    aws_lb_target_group.tg_academic_risk.arn
   ]
-
-  target_group_arns = [aws_lb_target_group.tg_tracking.arn]
 
   launch_template {
     id      = aws_launch_template.template_apps.id
@@ -210,7 +282,6 @@ resource "aws_autoscaling_group" "asg_produccion" {
 # =====================================================
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.vpc_prod.id
-
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
