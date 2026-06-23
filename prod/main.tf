@@ -32,7 +32,6 @@ resource "aws_vpc" "vpc_prod" {
   }
 }
 
-
 resource "aws_subnet" "public_1" {
   vpc_id                  = aws_vpc.vpc_prod.id
   cidr_block              = "10.1.1.0/24"
@@ -55,7 +54,6 @@ resource "aws_subnet" "public_2" {
   }
 }
 
-
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.vpc_prod.id
 
@@ -67,7 +65,6 @@ resource "aws_internet_gateway" "igw" {
     prevent_destroy = true
   }
 }
-
 
 resource "aws_eip" "nat_eip" {
   domain = "vpc"
@@ -129,12 +126,19 @@ resource "aws_launch_template" "template_apps" {
 
   user_data = base64encode(<<-EOF
     #!/bin/bash
+    yum update -y
     yum install -y docker
     systemctl start docker
     systemctl enable docker
     usermod -aG docker ec2-user
 
-    # Pull de los 10 Microservicios Oficiales del Módulo 4
+    # Levantamiento del Broker de Mensajería local en el Nodo de Producción
+    docker run -d -p 5672:5672 -p 15672:15672 --name rabbitmq-prod --restart unless-stopped rabbitmq:3-management-alpine
+    
+    # Delay de seguridad para inicialización de sockets
+    sleep 15
+
+    # Pull masivo de imágenes oficiales
     docker pull docker.io/xaandrade/tracking-service:prod
     docker pull docker.io/xaandrade/notification-service:prod
     docker pull docker.io/xaandrade/academic-risk-service:prod
@@ -146,10 +150,20 @@ resource "aws_launch_template" "template_apps" {
     docker pull docker.io/xaandrade/analytics-service:prod
     docker pull docker.io/xaandrade/audit-service:prod
 
-    # Ejecución en puertos mapeados externamente
+    # Inicialización de contenedores e inyección de contexto de persistencia y eventos
     docker run -d -p 8000:8000 --name tracking-service-prod -e ENV="production" --restart unless-stopped docker.io/xaandrade/tracking-service:prod
-    docker run -d -p 8001:8000 --name notification-service-prod -e ENV="production" --restart unless-stopped docker.io/xaandrade/notification-service:prod
-    docker run -d -p 8002:8000 --name academic-risk-service-prod -e ENV="production" --restart unless-stopped docker.io/xaandrade/academic-risk-service:prod
+    
+    docker run -d -p 8001:8000 --name notification-service-prod \
+      -e ENV="production" \
+      -e RABBITMQ_HOST="localhost" \
+      -e MONGO_URI="mongodb://localhost:27017/" \
+      --restart unless-stopped docker.io/xaandrade/notification-service:prod
+
+    docker run -d -p 8002:8000 --name academic-risk-service-prod \
+      -e ENV="production" \
+      -e RABBITMQ_HOST="localhost" \
+      --restart unless-stopped docker.io/xaandrade/academic-risk-service:prod
+
     docker run -d -p 8003:8000 --name security-gateway-prod -e ENV="production" --restart unless-stopped docker.io/xaandrade/security-gateway-service:prod
     docker run -d -p 8004:8000 --name chat-service-prod -e ENV="production" --restart unless-stopped docker.io/xaandrade/chat-service:prod
     docker run -d -p 8005:8000 --name dashboard-service-prod -e ENV="production" --restart unless-stopped docker.io/xaandrade/dashboard-service:prod
@@ -268,9 +282,7 @@ resource "aws_lb_listener" "listener_http" {
 }
 
 
-# =====================================================
-# REGLAS INTELIGENTES DE ENRUTAMIENTO (PATH-BASED ROUTING)
-# =====================================================
+
 resource "aws_lb_listener_rule" "rule_notification" {
   listener_arn = aws_lb_listener.listener_http.arn
   priority     = 10
