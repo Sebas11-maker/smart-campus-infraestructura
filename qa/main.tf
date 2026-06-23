@@ -17,9 +17,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-# =====================================================
-# VPC
-# =====================================================
 
 resource "aws_vpc" "vpc_modulo4" {
   cidr_block           = "10.0.0.0/16"
@@ -30,9 +27,6 @@ resource "aws_vpc" "vpc_modulo4" {
   }
 }
 
-# =====================================================
-# SUBNETS
-# =====================================================
 
 resource "aws_subnet" "public_1" {
   vpc_id                  = aws_vpc.vpc_modulo4.id
@@ -55,9 +49,6 @@ resource "aws_subnet" "private_1" {
   }
 }
 
-# =====================================================
-# INTERNET GATEWAY
-# =====================================================
 
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.vpc_modulo4.id
@@ -67,9 +58,6 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-# =====================================================
-# PUBLIC ROUTE TABLE
-# =====================================================
 
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.vpc_modulo4.id
@@ -89,9 +77,6 @@ resource "aws_route_table_association" "pub_1_assoc" {
   route_table_id = aws_route_table.public_rt.id
 }
 
-# =====================================================
-# NAT GATEWAY
-# =====================================================
 
 resource "aws_eip" "nat_eip" {
   domain = "vpc"
@@ -114,9 +99,6 @@ resource "aws_nat_gateway" "nat_gateway" {
   }
 }
 
-# =====================================================
-# PRIVATE ROUTE TABLE
-# =====================================================
 
 resource "aws_route_table" "private_rt" {
   vpc_id = aws_vpc.vpc_modulo4.id
@@ -136,9 +118,6 @@ resource "aws_route_table_association" "private_assoc" {
   route_table_id = aws_route_table.private_rt.id
 }
 
-# =====================================================
-# SECURITY GROUP BASTION
-# =====================================================
 
 resource "aws_security_group" "sg_bastion" {
   name   = "sg_bastion_m4_qa"
@@ -159,9 +138,6 @@ resource "aws_security_group" "sg_bastion" {
   }
 }
 
-# =====================================================
-# SECURITY GROUP MICROSERVICIOS
-# =====================================================
 
 resource "aws_security_group" "sg_microservicios" {
   name        = "sg_apps_uce_m4_qa"
@@ -190,9 +166,6 @@ resource "aws_security_group" "sg_microservicios" {
   }
 }
 
-# =====================================================
-# BASTION HOST
-# =====================================================
 
 resource "aws_instance" "bastion_host" {
   ami                         = "ami-0c7217cdde317cfec"
@@ -211,9 +184,6 @@ resource "aws_instance" "bastion_host" {
   }
 }
 
-# =====================================================
-# MONGODB SERVER
-# =====================================================
 
 resource "aws_instance" "mongodb_server" {
   ami           = "ami-0c7217cdde317cfec"
@@ -231,23 +201,15 @@ resource "aws_instance" "mongodb_server" {
   }
 }
 
-# =====================================================
-# USER DATA - INSTALACIÓN AUTOMÁTICA DE DOCKER
-# =====================================================
 
 locals {
   docker_install_script = <<-EOF
     #!/bin/bash
-
     dnf update -y
-
     dnf install docker -y
-
     systemctl enable docker
     systemctl start docker
-
     usermod -aG docker ec2-user
-
     mkdir -p /etc/docker
 
     cat <<CONFIG >/etc/docker/daemon.json
@@ -264,68 +226,143 @@ locals {
   EOF
 }
 
-# =====================================================
-# ACADEMIC RISK SERVICE
-# =====================================================
 
 resource "aws_instance" "sec_service_qa" {
   ami           = "ami-0440d3b780d96b29d"
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.private_1.id
-
-  vpc_security_group_ids = [
-    aws_security_group.sg_microservicios.id
-  ]
-
-  key_name = "vockey"
-
-  user_data = local.docker_install_script
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name      = "vockey"
+  user_data     = local.docker_install_script
 
   tags = {
     Name = "Academic-Risk-Service-QA-M4"
   }
 }
 
-# =====================================================
-# NOTIFICATION SERVICE
-# =====================================================
 
 resource "aws_instance" "notify_service_qa" {
   ami           = "ami-0440d3b780d96b29d"
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.private_1.id
-
-  vpc_security_group_ids = [
-    aws_security_group.sg_microservicios.id
-  ]
-
-  key_name = "vockey"
-
-  user_data = local.docker_install_script
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name      = "vockey"
+  user_data     = local.docker_install_script
 
   tags = {
     Name = "Notification-Service-QA-M4"
   }
 }
 
-# =====================================================
-# TRACKING SERVICE
-# =====================================================
+
 
 resource "aws_instance" "tracking_service_qa" {
   ami           = "ami-0440d3b780d96b29d"
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.private_1.id
-
-  vpc_security_group_ids = [
-    aws_security_group.sg_microservicios.id
-  ]
-
-  key_name = "vockey"
-
-  user_data = local.docker_install_script
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name      = "vockey"
+  user_data     = local.docker_install_script
 
   tags = {
     Name = "Tracking-Service-QA-M4"
+  }
+}
+
+
+resource "aws_instance" "security_gateway_qa" {
+  ami           = "ami-0440d3b780d96b29d"
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.private_1.id
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name      = "vockey"
+  user_data     = local.docker_install_script
+
+  tags = {
+    Name = "Security-Gateway-Service-QA-M4"
+  }
+}
+
+
+resource "aws_instance" "chat_service_qa" {
+  ami           = "ami-0440d3b780d96b29d"
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.private_1.id
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name      = "vockey"
+  user_data     = local.docker_install_script
+
+  tags = {
+    Name = "Chat-Service-QA-M4"
+  }
+}
+
+
+resource "aws_instance" "dashboard_service_qa" {
+  ami           = "ami-0440d3b780d96b29d"
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.private_1.id
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name      = "vockey"
+  user_data     = local.docker_install_script
+
+  tags = {
+    Name = "Dashboard-Service-QA-M4"
+  }
+}
+
+
+resource "aws_instance" "report_service_qa" {
+  ami           = "ami-0440d3b780d96b29d"
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.private_1.id
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name      = "vockey"
+  user_data     = local.docker_install_script
+
+  tags = {
+    Name = "Report-Service-QA-M4"
+  }
+}
+
+
+resource "aws_instance" "export_service_qa" {
+  ami           = "ami-0440d3b780d96b29d"
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.private_1.id
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name      = "vockey"
+  user_data     = local.docker_install_script
+
+  tags = {
+    Name = "Export-Service-QA-M4"
+  }
+}
+
+
+resource "aws_instance" "analytics_service_qa" {
+  ami           = "ami-0440d3b780d96b29d"
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.private_1.id
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name      = "vockey"
+  user_data     = local.docker_install_script
+
+  tags = {
+    Name = "Analytics-Service-QA-M4"
+  }
+}
+
+
+resource "aws_instance" "audit_service_qa" {
+  ami           = "ami-0440d3b780d96b29d"
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.private_1.id
+  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
+  key_name      = "vockey"
+  user_data     = local.docker_install_script
+
+  tags = {
+    Name = "Audit-Service-QA-M4"
   }
 }

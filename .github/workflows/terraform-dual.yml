@@ -3,13 +3,11 @@ name: Terraform QA → PROD (Unified Push)
 on:
   push:
     branches:
-      - qa # Se dispara únicamente al enviar cambios a la rama qa
+      - qa 
   workflow_dispatch:
 
 jobs:
-# =========================
-# QA DEPLOY
-# =========================
+
   deploy-qa:
     name: Deploy QA Environment
     runs-on: ubuntu-latest
@@ -26,14 +24,13 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_QA }} # Requisito de AWS Academy
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_QA }} 
           aws-region: us-east-1
 
       - name: Configurar e Instalar Terraform en el Runner
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.7.0" # Asegura una versión estable y moderna
-
+          terraform_version: "1.7.0" 
       - name: Terraform Init QA
         run: terraform init -reconfigure
 
@@ -49,13 +46,11 @@ jobs:
       - name: QA Outputs Evidence
         run: terraform output
 
-# =========================
-# PROD DEPLOY (SE EJECUTA INMEDIATAMENTE DESPUÉS)
-# =========================
+
   deploy-prod:
     name: Deploy PROD Environment
     runs-on: ubuntu-latest
-    needs: deploy-qa # Garantiza que primero termine QA con éxito
+    needs: deploy-qa 
 
     defaults:
       run:
@@ -70,7 +65,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_PROD }} # Requisito de AWS Academy
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_PROD }} 
           aws-region: us-east-1
 
       - name: Configurar e Instalar Terraform en el Runner
