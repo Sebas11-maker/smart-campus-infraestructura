@@ -227,142 +227,29 @@ locals {
 }
 
 
-resource "aws_instance" "sec_service_qa" {
-  ami           = "ami-0440d3b780d96b29d"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private_1.id
+resource "aws_instance" "app_node_1_qa" {
+  ami                    = "ami-0440d3b780d96b29d"
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name      = "vockey"
-  user_data     = local.docker_install_script
+  key_name               = "vockey"
+  user_data              = local.docker_install_script
 
   tags = {
-    Name = "Academic-Risk-Service-QA-M4"
+    Name = "App-Node-1-Communications-QA"
   }
 }
 
 
-resource "aws_instance" "notify_service_qa" {
-  ami           = "ami-0440d3b780d96b29d"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private_1.id
+resource "aws_instance" "app_node_2_qa" {
+  ami                    = "ami-0440d3b780d96b29d"
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name      = "vockey"
-  user_data     = local.docker_install_script
+  key_name               = "vockey"
+  user_data              = local.docker_install_script
 
   tags = {
-    Name = "Notification-Service-QA-M4"
-  }
-}
-
-
-
-resource "aws_instance" "tracking_service_qa" {
-  ami           = "ami-0440d3b780d96b29d"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private_1.id
-  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name      = "vockey"
-  user_data     = local.docker_install_script
-
-  tags = {
-    Name = "Tracking-Service-QA-M4"
-  }
-}
-
-
-resource "aws_instance" "security_gateway_qa" {
-  ami           = "ami-0440d3b780d96b29d"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private_1.id
-  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name      = "vockey"
-  user_data     = local.docker_install_script
-
-  tags = {
-    Name = "Security-Gateway-Service-QA-M4"
-  }
-}
-
-
-resource "aws_instance" "chat_service_qa" {
-  ami           = "ami-0440d3b780d96b29d"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private_1.id
-  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name      = "vockey"
-  user_data     = local.docker_install_script
-
-  tags = {
-    Name = "Chat-Service-QA-M4"
-  }
-}
-
-
-resource "aws_instance" "dashboard_service_qa" {
-  ami           = "ami-0440d3b780d96b29d"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private_1.id
-  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name      = "vockey"
-  user_data     = local.docker_install_script
-
-  tags = {
-    Name = "Dashboard-Service-QA-M4"
-  }
-}
-
-
-resource "aws_instance" "report_service_qa" {
-  ami           = "ami-0440d3b780d96b29d"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private_1.id
-  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name      = "vockey"
-  user_data     = local.docker_install_script
-
-  tags = {
-    Name = "Report-Service-QA-M4"
-  }
-}
-
-
-resource "aws_instance" "export_service_qa" {
-  ami           = "ami-0440d3b780d96b29d"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private_1.id
-  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name      = "vockey"
-  user_data     = local.docker_install_script
-
-  tags = {
-    Name = "Export-Service-QA-M4"
-  }
-}
-
-
-resource "aws_instance" "analytics_service_qa" {
-  ami           = "ami-0440d3b780d96b29d"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private_1.id
-  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name      = "vockey"
-  user_data     = local.docker_install_script
-
-  tags = {
-    Name = "Analytics-Service-QA-M4"
-  }
-}
-
-
-resource "aws_instance" "audit_service_qa" {
-  ami           = "ami-0440d3b780d96b29d"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private_1.id
-  vpc_security_group_ids = [aws_security_group.sg_microservicios.id]
-  key_name      = "vockey"
-  user_data     = local.docker_install_script
-
-  tags = {
-    Name = "Audit-Service-QA-M4"
+    Name = "App-Node-2-Analytics-QA"
   }
 }
