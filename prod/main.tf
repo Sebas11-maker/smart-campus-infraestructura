@@ -268,94 +268,151 @@ resource "aws_lb_listener" "listener_http" {
 }
 
 
+# =====================================================
+# REGLAS INTELIGENTES DE ENRUTAMIENTO (PATH-BASED ROUTING)
+# =====================================================
 resource "aws_lb_listener_rule" "rule_notification" {
   listener_arn = aws_lb_listener.listener_http.arn
   priority     = 10
+
   action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg_notification.arn
   }
-  condition { path_pattern { values = ["/notifications", "/notifications*"] } }
+
+  condition {
+    path_pattern {
+      values = ["/notifications", "/notifications*"]
+    }
+  }
 }
 
 resource "aws_lb_listener_rule" "rule_academic_risk" {
   listener_arn = aws_lb_listener.listener_http.arn
   priority     = 20
+
   action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg_academic_risk.arn
   }
-  condition { path_pattern { values = ["/risk", "/risk*"] } }
+
+  condition {
+    path_pattern {
+      values = ["/risk", "/risk*"]
+    }
+  }
 }
 
 resource "aws_lb_listener_rule" "rule_security" {
   listener_arn = aws_lb_listener.listener_http.arn
   priority     = 30
+
   action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg_security.arn
   }
-  condition { path_pattern { values = ["/security", "/security*"] } }
+
+  condition {
+    path_pattern {
+      values = ["/security", "/security*"]
+    }
+  }
 }
 
 resource "aws_lb_listener_rule" "rule_chat" {
   listener_arn = aws_lb_listener.listener_http.arn
   priority     = 40
+
   action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg_chat.arn
   }
-  condition { path_pattern { values = ["/chat", "/chat*"] } }
+
+  condition {
+    path_pattern {
+      values = ["/chat", "/chat*"]
+    }
+  }
 }
 
 resource "aws_lb_listener_rule" "rule_dashboard" {
   listener_arn = aws_lb_listener.listener_http.arn
   priority     = 50
+
   action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg_dashboard.arn
   }
-  condition { path_pattern { values = ["/dashboard", "/dashboard*"] } }
+
+  condition {
+    path_pattern {
+      values = ["/dashboard", "/dashboard*"]
+    }
+  }
 }
 
 resource "aws_lb_listener_rule" "rule_report" {
   listener_arn = aws_lb_listener.listener_http.arn
   priority     = 60
+
   action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg_report.arn
   }
-  condition { path_pattern { values = ["/report", "/report*"] } }
+
+  condition {
+    path_pattern {
+      values = ["/report", "/report*"]
+    }
+  }
 }
 
 resource "aws_lb_listener_rule" "rule_export" {
   listener_arn = aws_lb_listener.listener_http.arn
   priority     = 70
+
   action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg_export.arn
   }
-  condition { path_pattern { values = ["/export", "/export*"] } }
+
+  condition {
+    path_pattern {
+      values = ["/export", "/export*"]
+    }
+  }
 }
 
 resource "aws_lb_listener_rule" "rule_analytics" {
   listener_arn = aws_lb_listener.listener_http.arn
   priority     = 80
+
   action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg_analytics.arn
   }
-  condition { path_pattern { values = ["/analytics", "/analytics*"] } }
+
+  condition {
+    path_pattern {
+      values = ["/analytics", "/analytics*"]
+    }
+  }
 }
 
 resource "aws_lb_listener_rule" "rule_audit" {
   listener_arn = aws_lb_listener.listener_http.arn
   priority     = 90
+
   action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg_audit.arn
   }
-  condition { path_pattern { values = ["/audit", "/audit*"] } }
+
+  condition {
+    path_pattern {
+      values = ["/audit", "/audit*"]
+    }
+  }
 }
 
 
