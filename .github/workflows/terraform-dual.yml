@@ -1,0 +1,123 @@
+name: Terraform QA → PROD (Unified Push)
+
+on:
+  push:
+    branches:
+      - qa 
+  workflow_dispatch:
+
+jobs:
+
+  deploy-qa:
+    name: Deploy QA Environment
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: qa
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (QA)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_QA }} 
+          aws-region: us-east-1
+
+      - name: Configurar e Instalar Terraform en el Runner
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0" 
+      - name: Terraform Init QA
+        run: terraform init -reconfigure
+
+      - name: Terraform Validate QA
+        run: terraform validate
+
+      - name: Terraform Plan QA
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply QA
+        run: terraform apply -auto-approve tfplan
+
+      - name: QA Outputs Evidence
+        run: terraform output
+
+
+  deploy-prod:
+    name: Deploy PROD Environment
+    runs-on: ubuntu-latest
+    needs: deploy-qa 
+
+    defaults:
+      run:
+        working-directory: prod
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (PROD)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN_PROD }} 
+          aws-region: us-east-1
+
+      - name: Configurar e Instalar Terraform en el Runner
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform Init PROD
+        run: terraform init -reconfigure
+
+      - name: Terraform Validate PROD
+        run: terraform validate
+
+      - name: Terraform Plan PROD
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply PROD
+        run: terraform apply -auto-approve tfplan
+
+      - name: PROD Outputs Evidence
+        run: terraform output
+
+  create-infra-release:
+    name: 'Generar Release de Infraestructura'
+    runs-on: ubuntu-latest
+    needs: deploy-prod 
+    permissions:
+      contents: write 
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Crear Etiqueta de Arquitectura Cloud
+        id: infra_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: infra-v1.${{ github.run_number }}.0
+          name: "Infrastructure Release - Versión v1.${{ github.run_number }}.0"
+          body: |
+            ##  Estado de la Infraestructura Cloud (Módulo 4)
+            
+            Sincronización automatizada de topología en AWS Academy completada por el equipo.
+            
+            ###  Recursos Gestionados en esta Versión:
+            * **Networking:** VPC productiva, Subnets Públicas/Privadas y reglas elásticas de ruteo perimetral.
+            * **Balanceo y Escalado:** Application Load Balancer (ALB) y reglas basadas en rutas (`/risk`, `/notifications`). Auto Scaling Group (ASG) configurado.
+            * **Aprovisionamiento:** Plantillas de lanzamiento actualizadas con despliegue nativo de contenedores de soporte (RabbitMQ, Docker Engine).
+            
+            *ID de Ejecución: ${{ github.run_id }}*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
