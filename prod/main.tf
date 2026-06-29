@@ -7,7 +7,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "s3-smartcampus-uce-m4-prod1"
+    bucket = "s3-smartcampus-uce-m4-prod-def"
     key    = "prod/terraform.tfstate"
     region = "us-east-1"
   }
